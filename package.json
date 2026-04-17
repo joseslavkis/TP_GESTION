@@ -1,5 +1,5 @@
 {
-  "name": "fastapi-full-stack-template",
+  "name": "gdsi-gastos-grupales",
   "private": true,
   "workspaces": [
     "frontend"

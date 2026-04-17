@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_layout/")({
   head: () => ({
     meta: [
       {
-        title: "Dashboard - FastAPI Template",
+        title: "Inicio - Gastos Grupales",
       },
     ],
   }),
@@ -20,10 +20,11 @@ function Dashboard() {
     <div>
       <div>
         <h1 className="text-2xl truncate max-w-sm">
-          Hi, {currentUser?.full_name || currentUser?.email} 👋
+          Hola, {currentUser?.full_name || currentUser?.email}
         </h1>
         <p className="text-muted-foreground">
-          Welcome back, nice to see you again!!!
+          Esta base queda lista para evolucionar hacia grupos, gastos y
+          balances compartidos.
         </p>
       </div>
     </div>

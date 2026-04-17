@@ -42,7 +42,7 @@ export const Route = createFileRoute("/recover-password")({
   head: () => ({
     meta: [
       {
-        title: "Recover Password - FastAPI Template",
+        title: "Recuperar acceso - Gastos Grupales",
       },
     ],
   }),
@@ -66,7 +66,7 @@ function RecoverPassword() {
   const mutation = useMutation({
     mutationFn: recoverPassword,
     onSuccess: () => {
-      showSuccessToast("Password recovery email sent successfully")
+      showSuccessToast("Se envio el correo de recuperacion")
       form.reset()
     },
     onError: handleError.bind(showErrorToast),
@@ -85,7 +85,7 @@ function RecoverPassword() {
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Password Recovery</h1>
+            <h1 className="text-2xl font-bold">Recuperar acceso</h1>
           </div>
 
           <div className="grid gap-4">
@@ -113,14 +113,14 @@ function RecoverPassword() {
               className="w-full"
               loading={mutation.isPending}
             >
-              Continue
+              Continuar
             </LoadingButton>
           </div>
 
           <div className="text-center text-sm">
-            Remember your password?{" "}
+            Recordaste tu contrasena?{" "}
             <RouterLink to="/login" className="underline underline-offset-4">
-              Log in
+              Ingresar
             </RouterLink>
           </div>
         </form>

@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_layout/admin")({
   head: () => ({
     meta: [
       {
-        title: "Admin - FastAPI Template",
+        title: "Integrantes - Gastos Grupales",
       },
     ],
   }),
@@ -60,9 +60,9 @@ function Admin() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Integrantes</h1>
           <p className="text-muted-foreground">
-            Manage user accounts and permissions
+            Espacio transitorio para gestionar personas del sistema
           </p>
         </div>
         <AddUser />

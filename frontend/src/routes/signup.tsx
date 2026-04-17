@@ -23,17 +23,17 @@ import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 const formSchema = z
   .object({
     email: z.email(),
-    full_name: z.string().min(1, { message: "Full Name is required" }),
+    full_name: z.string().min(1, { message: "El nombre es obligatorio" }),
     password: z
       .string()
-      .min(1, { message: "Password is required" })
-      .min(8, { message: "Password must be at least 8 characters" }),
+      .min(1, { message: "La contrasena es obligatoria" })
+      .min(8, { message: "La contrasena debe tener al menos 8 caracteres" }),
     confirm_password: z
       .string()
-      .min(1, { message: "Password confirmation is required" }),
+      .min(1, { message: "La confirmacion es obligatoria" }),
   })
   .refine((data) => data.password === data.confirm_password, {
-    message: "The passwords don't match",
+    message: "Las contrasenas no coinciden",
     path: ["confirm_password"],
   })
 
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       {
-        title: "Sign Up - FastAPI Template",
+        title: "Registro - Gastos Grupales",
       },
     ],
   }),
@@ -87,7 +87,7 @@ function SignUp() {
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Create an account</h1>
+            <h1 className="text-2xl font-bold">Crear cuenta</h1>
           </div>
 
           <div className="grid gap-4">
@@ -96,11 +96,11 @@ function SignUp() {
               name="full_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Nombre</FormLabel>
                   <FormControl>
                     <Input
                       data-testid="full-name-input"
-                      placeholder="User"
+                      placeholder="Tu nombre"
                       type="text"
                       {...field}
                     />
@@ -134,11 +134,11 @@ function SignUp() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Contrasena</FormLabel>
                   <FormControl>
                     <PasswordInput
                       data-testid="password-input"
-                      placeholder="Password"
+                      placeholder="Contrasena"
                       {...field}
                     />
                   </FormControl>
@@ -152,11 +152,11 @@ function SignUp() {
               name="confirm_password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel>Confirmar contrasena</FormLabel>
                   <FormControl>
                     <PasswordInput
                       data-testid="confirm-password-input"
-                      placeholder="Confirm Password"
+                      placeholder="Repeti tu contrasena"
                       {...field}
                     />
                   </FormControl>
@@ -170,14 +170,14 @@ function SignUp() {
               className="w-full"
               loading={signUpMutation.isPending}
             >
-              Sign Up
+              Crear cuenta
             </LoadingButton>
           </div>
 
           <div className="text-center text-sm">
-            Already have an account?{" "}
+            Ya tenes cuenta?{" "}
             <RouterLink to="/login" className="underline underline-offset-4">
-              Log in
+              Ingresar
             </RouterLink>
           </div>
         </form>
