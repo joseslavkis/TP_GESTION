@@ -1,11 +1,42 @@
 import uuid
 from typing import Any
 from fastapi import APIRouter, Depends
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Group, GroupCreate, GroupPublic, GroupMember
+from app.models import (
+    Group,
+    GroupCreate,
+    GroupMember,
+    GroupPublic,
+    GroupsPublic,
+)
 
 router = APIRouter(prefix="/groups", tags=["groups"])
+
+
+@router.get("/", response_model=GroupsPublic)
+def list_user_groups(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+) -> Any:
+    """
+    Listar los grupos del usuario autenticado.
+    """
+    base_query = (
+        select(Group).join(GroupMember).where(GroupMember.user_id == current_user.id)
+    )
+    count_statement = select(func.count()).select_from(
+        base_query.with_only_columns(Group.id).subquery()
+    )
+    count = session.exec(count_statement).one()
+    groups_statement = (
+        base_query.order_by(col(Group.created_at).desc()).offset(skip).limit(limit)
+    )
+    groups = session.exec(groups_statement).all()
+    return GroupsPublic(data=groups, count=count)
 
 
 @router.post("/", response_model=GroupPublic)

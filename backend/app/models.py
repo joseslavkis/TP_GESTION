@@ -160,3 +160,8 @@ class GroupCreate(GroupBase):
 class GroupPublic(GroupBase):
     id: uuid.UUID
     created_at: datetime
+
+
+class GroupsPublic(SQLModel):
+    data: list[GroupPublic]
+    count: int
