@@ -23,6 +23,12 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+def normalize_database_url(database_url: str) -> str:
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # Use top level .env file (one level above ./backend/)
@@ -61,7 +67,7 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         if self.DATABASE_URL:
-            return self.DATABASE_URL
+            return normalize_database_url(self.DATABASE_URL)
 
         return PostgresDsn.build(
             scheme="postgresql+psycopg",
