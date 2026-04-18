@@ -137,7 +137,6 @@ def read_user_profile(current_user: CurrentUser) -> Any:
     """
     Obtener perfil del usuario autenticado con datos garantizados para la UI.
     """
-    # CA 3: Fallback seguro para el nombre visible y la inicial
     display_name = current_user.full_name if current_user.full_name else current_user.email.split("@")[0]
     initial = display_name[0].upper() if display_name else "U"
 

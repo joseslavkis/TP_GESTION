@@ -1,6 +1,6 @@
 import uuid
 from typing import Any
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -10,6 +10,10 @@ from app.models import (
     GroupMember,
     GroupPublic,
     GroupsPublic,
+    Expense,
+    ExpenseCreate,
+    ExpensePublic,
+    ExpenseParticipant,
 )
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -46,14 +50,11 @@ def create_group(
     """
     Crear un nuevo grupo.
     """
-    # CA 1 y CA 2: El grupo se instancia. La validación del nombre obligatorio
-    # y no vacío se realiza automáticamente en GroupCreate (min_length=1).
     group = Group.model_validate(group_in)
     session.add(group)
     session.commit()
     session.refresh(group)
 
-    # CA 1 y CA 3: Registrar al creador como miembro, administrador y saldo en cero.
     group_member = GroupMember(
         user_id=current_user.id,
         group_id=group.id,
@@ -63,6 +64,89 @@ def create_group(
     session.add(group_member)
     session.commit()
     
-    # No es necesario refrescar group_member, pero retornamos el grupo creado.
-    # CA 4: Se cumple implícitamente por el uso de CurrentUser en la firma.
     return group
+
+
+@router.post("/{group_id}/expenses", response_model=ExpensePublic)
+def create_expense(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+    expense_in: ExpenseCreate,
+) -> Any:
+    """
+    Registrar un nuevo gasto en un grupo.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
+    member_ids_query = select(GroupMember.user_id).where(GroupMember.group_id == group_id)
+    group_member_ids = set(session.exec(member_ids_query).all())
+
+    if current_user.id not in group_member_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a member of this group")
+    if expense_in.payer_id not in group_member_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payer is not a member of this group")
+    
+    participant_ids = {p.user_id for p in expense_in.participants}
+    if not participant_ids.issubset(group_member_ids):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more participants are not members of this group")
+
+    amounts_owed = {}
+    if expense_in.division_mode == "equitable":
+        num_participants = len(participant_ids)
+        split_amount = round(expense_in.amount / num_participants, 2)
+        for user_id in participant_ids:
+            amounts_owed[user_id] = split_amount
+        remainder = round(expense_in.amount - sum(amounts_owed.values()), 2)
+        if remainder != 0:
+            last_participant_id = list(participant_ids)[-1]
+            amounts_owed[last_participant_id] += remainder
+
+    elif expense_in.division_mode == "custom":
+        total_custom_amount = 0
+        for p in expense_in.participants:
+            if p.amount is None or p.amount <= 0:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Custom amount for user {p.user_id} must be a positive number")
+            amounts_owed[p.user_id] = p.amount
+            total_custom_amount += p.amount
+        
+        if not abs(total_custom_amount - expense_in.amount) < 0.01:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sum of custom amounts does not match the total expense amount")
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid division mode")
+
+    try:
+        db_expense = Expense.model_validate(expense_in, update={"group_id": group_id})
+        session.add(db_expense)
+        session.flush()
+
+        for user_id, amount_owed in amounts_owed.items():
+            participant = ExpenseParticipant(
+                expense_id=db_expense.id, user_id=user_id, amount_owed=amount_owed
+            )
+            session.add(participant)
+
+        group_members_query = select(GroupMember).where(GroupMember.group_id == group_id)
+        group_members_map = {gm.user_id: gm for gm in session.exec(group_members_query).all()}
+
+        payer_share = amounts_owed.get(expense_in.payer_id, 0.0)
+        group_members_map[expense_in.payer_id].balance += (expense_in.amount - payer_share)
+
+        for user_id, amount_owed_val in amounts_owed.items():
+            if user_id != expense_in.payer_id:
+                group_members_map[user_id].balance -= amount_owed_val
+
+        session.commit()
+        session.refresh(db_expense)
+
+    except Exception:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not process expense due to an internal error",
+        )
+
+    return db_expense
