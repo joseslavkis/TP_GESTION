@@ -20,11 +20,12 @@ WORKDIR /app/
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
 ENV PATH="/app/.venv/bin:$PATH"
 
+COPY pyproject.toml uv.lock /app/
+COPY ./backend/pyproject.toml /app/backend/pyproject.toml
+
 # Install dependencies
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
 RUN --mount=type=cache,id=s/aa8e6388-6d11-4e9f-866d-da4a5a502d64-uv-cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-workspace --package app
 
 COPY ./backend/scripts /app/backend/scripts
@@ -36,8 +37,6 @@ COPY ./backend/app /app/backend/app
 # Sync the project
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
 RUN --mount=type=cache,id=s/aa8e6388-6d11-4e9f-866d-da4a5a502d64-uv-cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --package app
 
 WORKDIR /app/backend/
