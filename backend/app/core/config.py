@@ -50,15 +50,19 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
-    POSTGRES_SERVER: str
+    DATABASE_URL: str | None = None
+    POSTGRES_SERVER: str | None = None
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
+    POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+
         return PostgresDsn.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
@@ -81,6 +85,26 @@ class Settings(BaseSettings):
     def _set_default_emails_from(self) -> Self:
         if not self.EMAILS_FROM_NAME:
             self.EMAILS_FROM_NAME = self.PROJECT_NAME
+        return self
+
+    @model_validator(mode="after")
+    def _validate_database_config(self) -> Self:
+        if self.DATABASE_URL:
+            return self
+
+        required_parts = {
+            "POSTGRES_SERVER": self.POSTGRES_SERVER,
+            "POSTGRES_USER": self.POSTGRES_USER,
+            "POSTGRES_DB": self.POSTGRES_DB,
+        }
+        missing_parts = [key for key, value in required_parts.items() if not value]
+        if missing_parts:
+            missing = ", ".join(missing_parts)
+            raise ValueError(
+                "Database configuration is incomplete. Set DATABASE_URL or define "
+                f"the individual Postgres settings: {missing}."
+            )
+
         return self
 
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
