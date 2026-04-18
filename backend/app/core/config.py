@@ -9,6 +9,7 @@ from pydantic import (
     HttpUrl,
     PostgresDsn,
     computed_field,
+    field_validator,
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,10 +18,23 @@ from typing_extensions import Self
 
 def parse_cors(v: Any) -> list[str] | str:
     if isinstance(v, str) and not v.startswith("["):
-        return [i.strip() for i in v.split(",") if i.strip()]
+        return [strip_wrapping_quotes(i.strip()) for i in v.split(",") if i.strip()]
     elif isinstance(v, list | str):
         return v
     raise ValueError(v)
+
+
+def strip_wrapping_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def normalize_database_url(database_url: str) -> str:
+    database_url = strip_wrapping_quotes(database_url)
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
 
 
 class Settings(BaseSettings):
@@ -41,6 +55,13 @@ class Settings(BaseSettings):
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
 
+    @field_validator("FRONTEND_HOST", mode="before")
+    @classmethod
+    def normalize_frontend_host(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return strip_wrapping_quotes(value).rstrip("/")
+        return value
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def all_cors_origins(self) -> list[str]:
@@ -50,15 +71,19 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
-    POSTGRES_SERVER: str
+    DATABASE_URL: str | None = None
+    POSTGRES_SERVER: str | None = None
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
+    POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        if self.DATABASE_URL:
+            return normalize_database_url(self.DATABASE_URL)
+
         return PostgresDsn.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
@@ -81,6 +106,26 @@ class Settings(BaseSettings):
     def _set_default_emails_from(self) -> Self:
         if not self.EMAILS_FROM_NAME:
             self.EMAILS_FROM_NAME = self.PROJECT_NAME
+        return self
+
+    @model_validator(mode="after")
+    def _validate_database_config(self) -> Self:
+        if self.DATABASE_URL:
+            return self
+
+        required_parts = {
+            "POSTGRES_SERVER": self.POSTGRES_SERVER,
+            "POSTGRES_USER": self.POSTGRES_USER,
+            "POSTGRES_DB": self.POSTGRES_DB,
+        }
+        missing_parts = [key for key, value in required_parts.items() if not value]
+        if missing_parts:
+            missing = ", ".join(missing_parts)
+            raise ValueError(
+                "Database configuration is incomplete. Set DATABASE_URL or define "
+                f"the individual Postgres settings: {missing}."
+            )
+
         return self
 
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48

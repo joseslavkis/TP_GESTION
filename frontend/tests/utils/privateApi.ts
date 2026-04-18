@@ -2,7 +2,15 @@
 // for local environments
 import { OpenAPI, PrivateService } from "../../src/client"
 
-OpenAPI.BASE = `${process.env.VITE_API_URL}`
+const apiBaseUrl = process.env.VITE_API_BASE_URL ?? process.env.VITE_API_URL
+
+if (!apiBaseUrl) {
+  throw new Error(
+    "Missing API base URL. Set VITE_API_BASE_URL (preferred) or VITE_API_URL.",
+  )
+}
+
+OpenAPI.BASE = apiBaseUrl.replace(/\/$/, "")
 
 export const createUser = async ({
   email,
