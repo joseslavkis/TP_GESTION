@@ -9,6 +9,7 @@ from pydantic import (
     HttpUrl,
     PostgresDsn,
     computed_field,
+    field_validator,
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,13 +18,20 @@ from typing_extensions import Self
 
 def parse_cors(v: Any) -> list[str] | str:
     if isinstance(v, str) and not v.startswith("["):
-        return [i.strip() for i in v.split(",") if i.strip()]
+        return [strip_wrapping_quotes(i.strip()) for i in v.split(",") if i.strip()]
     elif isinstance(v, list | str):
         return v
     raise ValueError(v)
 
 
+def strip_wrapping_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
 def normalize_database_url(database_url: str) -> str:
+    database_url = strip_wrapping_quotes(database_url)
     if database_url.startswith("postgresql://"):
         return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     return database_url
@@ -46,6 +54,13 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
+
+    @field_validator("FRONTEND_HOST", mode="before")
+    @classmethod
+    def normalize_frontend_host(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return strip_wrapping_quotes(value).rstrip("/")
+        return value
 
     @computed_field  # type: ignore[prop-decorator]
     @property
