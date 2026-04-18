@@ -130,7 +130,7 @@ Variables importantes del backend:
 
 Variables importantes del frontend:
 
-- `VITE_API_URL`: URL publica del backend
+- `VITE_API_BASE_URL`: URL publica del backend
 
 Antes de promover un deploy del backend, conviene configurar un
 Pre-Deploy Command en Railway para correr migraciones y datos iniciales.

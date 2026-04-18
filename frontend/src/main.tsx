@@ -13,7 +13,16 @@ import { Toaster } from "./components/ui/sonner"
 import "./index.css"
 import { routeTree } from "./routeTree.gen"
 
-OpenAPI.BASE = import.meta.env.VITE_API_URL
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL
+
+if (!apiBaseUrl) {
+  throw new Error(
+    "Missing API base URL. Set VITE_API_BASE_URL (preferred) or VITE_API_URL.",
+  )
+}
+
+OpenAPI.BASE = apiBaseUrl.replace(/\/$/, "")
 OpenAPI.TOKEN = async () => {
   return localStorage.getItem("access_token") || ""
 }

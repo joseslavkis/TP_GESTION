@@ -12,7 +12,7 @@ WORKDIR /app/frontend
 RUN bun install
 
 COPY ./frontend /app/frontend
-ARG VITE_API_URL
+ARG VITE_API_BASE_URL
 
 RUN bun run build
 
