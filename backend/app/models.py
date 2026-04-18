@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -54,6 +54,7 @@ class User(UserBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    groups: list["Group"] = Relationship(back_populates="members", link_model=GroupMember)
 
 
 # Properties to return via API, id is always required
@@ -134,3 +135,28 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+class GroupMember(SQLModel, table=True):
+    user_id: uuid.UUID = Field(foreign_key="user.id", primary_key=True)
+    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
+    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
+    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Esquema base para los grupos
+class GroupBase(SQLModel):
+    # CA 2: Nombre obligatorio (min_length=1 evita strings vacíos)
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+class Group(GroupBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    members: list["User"] = Relationship(back_populates="groups", link_model=GroupMember)
+    
+class GroupCreate(GroupBase):
+    pass
+
+class GroupPublic(GroupBase):
+    id: uuid.UUID
+    created_at: datetime
