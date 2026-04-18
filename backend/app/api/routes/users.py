@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import col, delete, func, select
 
@@ -23,6 +24,7 @@ from app.models import (
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
+    UserProfile
 )
 from app.utils import generate_new_account_email, send_email
 
@@ -127,6 +129,25 @@ def read_user_me(current_user: CurrentUser) -> Any:
     Get current user.
     """
     return current_user
+
+
+
+@router.get("/me/profile", response_model=UserProfileInfo)
+def read_user_profile(current_user: CurrentUser) -> Any:
+    """
+    Obtener perfil del usuario autenticado con datos garantizados para la UI.
+    """
+    # CA 3: Fallback seguro para el nombre visible y la inicial
+    display_name = current_user.full_name if current_user.full_name else current_user.email.split("@")[0]
+    initial = display_name[0].upper() if display_name else "U"
+
+    return UserProfileInfo(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        display_name=display_name,
+        initial=initial
+    )
 
 
 @router.delete("/me", response_model=Message)

@@ -61,6 +61,13 @@ class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
 
+class UserProfileInfo(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str | None = None
+    display_name: str
+    initial: str
+
 
 class UsersPublic(SQLModel):
     data: list[UserPublic]
