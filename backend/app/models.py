@@ -11,6 +11,14 @@ def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class GroupMember(SQLModel, table=True):
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
+    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
+    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
+    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 # Shared properties
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
@@ -132,13 +140,6 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
-
-class GroupMember(SQLModel, table=True):
-    user_id: uuid.UUID = Field(foreign_key="user.id", on_delete="CASCADE", primary_key=True)
-    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
-    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
-    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
