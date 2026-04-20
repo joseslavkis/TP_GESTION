@@ -46,6 +46,13 @@ class UpdatePassword(SQLModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class GroupMember(SQLModel, table=True):
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
+    group_id: uuid.UUID = Field(foreign_key="group.id", ondelete="CASCADE", primary_key=True)
+    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
+    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -133,12 +140,6 @@ class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
 
-class GroupMember(SQLModel, table=True):
-    user_id: uuid.UUID = Field(foreign_key="user.id", on_delete="CASCADE", primary_key=True)
-    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
-    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
-    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
@@ -156,6 +157,7 @@ class GroupCreate(GroupBase):
 class GroupPublic(GroupBase):
     id: uuid.UUID
     created_at: datetime
+    current_user_balance: float = 0.0
 
 
 class GroupsPublic(SQLModel):
@@ -163,8 +165,8 @@ class GroupsPublic(SQLModel):
     count: int
 
 class ExpenseParticipant(SQLModel, table=True):
-    expense_id: uuid.UUID = Field(foreign_key="expense.id", primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", primary_key=True)
+    expense_id: uuid.UUID = Field(foreign_key="expense.id", ondelete="CASCADE", primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
     amount_owed: float
 
     expense: "Expense" = Relationship(back_populates="participants")
@@ -177,9 +179,9 @@ class ExpenseBase(SQLModel):
 class Expense(ExpenseBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    group_id: uuid.UUID = Field(foreign_key="group.id")
+    group_id: uuid.UUID = Field(foreign_key="group.id", ondelete="CASCADE")
     group: "Group" = Relationship(back_populates="expenses")
-    payer_id: uuid.UUID = Field(foreign_key="user.id")
+    payer_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE")
     payer: "User" = Relationship()
     participants: list[ExpenseParticipant] = Relationship(back_populates="expense", cascade_delete=True)
 
@@ -191,7 +193,7 @@ class ExpenseCreate(BaseModel):
     description: str = Field(min_length=1, max_length=255)
     amount: float = Field(gt=0)
     payer_id: uuid.UUID
-    participants: list[ExpenseParticipantIn] = Field(min_length=1)
+    participants: list[ExpenseParticipantIn] = Field(default_factory=list)
     division_mode: Literal["equitable", "custom"]
 
 class ExpenseParticipantPublic(BaseModel):
@@ -204,3 +206,24 @@ class ExpensePublic(ExpenseBase):
     payer_id: uuid.UUID
     created_at: datetime
     participants: list[ExpenseParticipantPublic]
+
+
+class ExpensesPublic(SQLModel):
+    data: list[ExpensePublic]
+    count: int
+
+
+class UserExpensePublic(BaseModel):
+    expense_id: uuid.UUID
+    group_id: uuid.UUID
+    group_name: str
+    description: str
+    amount: float
+    payer_id: uuid.UUID
+    created_at: datetime
+    current_user_amount_owed: float
+
+
+class UserExpensesPublic(SQLModel):
+    data: list[UserExpensePublic]
+    count: int
