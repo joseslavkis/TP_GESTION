@@ -14,6 +14,7 @@ from app.models import (
     ExpenseCreate,
     ExpensePublic,
     ExpenseParticipant,
+    Message,
 )
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -150,3 +151,56 @@ def create_expense(
         )
 
     return db_expense
+
+
+@router.delete("/{group_id}", response_model=Message)
+def delete_group(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+) -> Any:
+    """
+    Delete a group.
+    Only a group admin can delete the group and only if all balances are zero.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+
+    # Find user role in group (if not superuser)
+    if not current_user.is_superuser:
+        member_statement = select(GroupMember).where(
+            GroupMember.group_id == group_id, GroupMember.user_id == current_user.id
+        )
+        current_member = session.exec(member_statement).first()
+
+        if not current_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions. User is not a member of the group.",
+            )
+
+        if not current_member.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions. Only group admins can delete the group.",
+            )
+
+    # Validate outstanding balances
+    members_statement = select(GroupMember).where(GroupMember.group_id == group_id)
+    group_members = session.exec(members_statement).all()
+
+    for member in group_members:
+        # Use round with 2 decimals to avoid floating point precision issues
+        if round(member.balance, 2) != 0.0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete group with outstanding balances. All debts must be settled first.",
+            )
+
+    session.delete(group)
+    session.commit()
+    return Message(message="Group deleted successfully")

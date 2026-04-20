@@ -46,6 +46,13 @@ class UpdatePassword(SQLModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class GroupMember(SQLModel, table=True):
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
+    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
+    is_admin: bool = Field(default=False) # CA 1: Identifies if user is admin
+    balance: float = Field(default=0.0)   # CA 3: Initial balances set to zero
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -133,12 +140,7 @@ class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
 
-class GroupMember(SQLModel, table=True):
-    user_id: uuid.UUID = Field(foreign_key="user.id", on_delete="CASCADE", primary_key=True)
-    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
-    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
-    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class GroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
