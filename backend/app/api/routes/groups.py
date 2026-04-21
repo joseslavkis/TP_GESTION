@@ -1,23 +1,47 @@
 import uuid
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, HTTPException, status
 from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
+    Expense,
+    ExpenseCreate,
+    ExpenseParticipant,
+    ExpenseParticipantPublic,
+    ExpensePublic,
+    ExpensesPublic,
     Group,
     GroupCreate,
     GroupMember,
     GroupPublic,
     GroupsPublic,
-    Expense,
-    ExpenseCreate,
-    ExpensePublic,
-    ExpenseParticipant,
-    Message,
+    UserExpensePublic,
+    UserExpensesPublic,
 )
 
 router = APIRouter(prefix="/groups", tags=["groups"])
+
+
+def _build_expense_public(
+    expense: Expense, participants: list[ExpenseParticipant]
+) -> ExpensePublic:
+    return ExpensePublic(
+        id=expense.id,
+        description=expense.description,
+        amount=expense.amount,
+        group_id=expense.group_id,
+        payer_id=expense.payer_id,
+        created_at=expense.created_at,
+        participants=[
+            ExpenseParticipantPublic(
+                user_id=participant.user_id,
+                amount_owed=participant.amount_owed,
+            )
+            for participant in participants
+        ],
+    )
 
 
 @router.get("/", response_model=GroupsPublic)
@@ -31,7 +55,9 @@ def list_user_groups(
     Listar los grupos del usuario autenticado.
     """
     base_query = (
-        select(Group).join(GroupMember).where(GroupMember.user_id == current_user.id)
+        select(Group, GroupMember.balance)
+        .join(GroupMember)
+        .where(GroupMember.user_id == current_user.id)
     )
     count_statement = select(func.count()).select_from(
         base_query.with_only_columns(Group.id).subquery()
@@ -40,7 +66,17 @@ def list_user_groups(
     groups_statement = (
         base_query.order_by(col(Group.created_at).desc()).offset(skip).limit(limit)
     )
-    groups = session.exec(groups_statement).all()
+    groups_with_balance = session.exec(groups_statement).all()
+    groups = [
+        GroupPublic(
+            id=group.id,
+            name=group.name,
+            description=group.description,
+            created_at=group.created_at,
+            current_user_balance=balance,
+        )
+        for group, balance in groups_with_balance
+    ]
     return GroupsPublic(data=groups, count=count)
 
 
@@ -60,12 +96,125 @@ def create_group(
         user_id=current_user.id,
         group_id=group.id,
         is_admin=True,
-        balance=0.0
+        balance=0.0,
     )
     session.add(group_member)
     session.commit()
-    
-    return group
+
+    return GroupPublic(
+        id=group.id,
+        name=group.name,
+        description=group.description,
+        created_at=group.created_at,
+        current_user_balance=0.0,
+    )
+
+
+@router.get("/me/expenses", response_model=UserExpensesPublic)
+def list_current_user_group_expenses(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+) -> Any:
+    """
+    Listar todos los gastos de los grupos del usuario con el monto que le corresponde.
+    """
+    base_query = (
+        select(Expense, Group.name, ExpenseParticipant.amount_owed)
+        .join(Group, Group.id == Expense.group_id)
+        .join(
+            GroupMember,
+            (GroupMember.group_id == Expense.group_id)
+            & (GroupMember.user_id == current_user.id),
+        )
+        .outerjoin(
+            ExpenseParticipant,
+            (ExpenseParticipant.expense_id == Expense.id)
+            & (ExpenseParticipant.user_id == current_user.id),
+        )
+    )
+    count_statement = select(func.count()).select_from(
+        base_query.with_only_columns(Expense.id).subquery()
+    )
+    count = session.exec(count_statement).one()
+    expenses_statement = (
+        base_query.order_by(col(Expense.created_at).desc()).offset(skip).limit(limit)
+    )
+    rows = session.exec(expenses_statement).all()
+    expenses = [
+        UserExpensePublic(
+            expense_id=expense.id,
+            group_id=expense.group_id,
+            group_name=group_name,
+            description=expense.description,
+            amount=expense.amount,
+            payer_id=expense.payer_id,
+            created_at=expense.created_at,
+            current_user_amount_owed=amount_owed or 0.0,
+        )
+        for expense, group_name, amount_owed in rows
+    ]
+    return UserExpensesPublic(data=expenses, count=count)
+
+
+@router.get("/{group_id}/expenses", response_model=ExpensesPublic)
+def list_group_expenses(
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
+) -> Any:
+    """
+    Listar los gastos de un grupo para sus miembros.
+    """
+    membership = session.exec(
+        select(GroupMember).where(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == current_user.id,
+        )
+    ).first()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of this group",
+        )
+
+    count_statement = select(func.count()).select_from(Expense).where(
+        Expense.group_id == group_id
+    )
+    count = session.exec(count_statement).one()
+    expenses = session.exec(
+        select(Expense)
+        .where(Expense.group_id == group_id)
+        .order_by(col(Expense.created_at).desc())
+        .offset(skip)
+        .limit(limit)
+    ).all()
+
+    participants = (
+        session.exec(
+            select(ExpenseParticipant).where(
+                ExpenseParticipant.expense_id.in_([expense.id for expense in expenses])
+            )
+        ).all()
+        if expenses
+        else []
+    )
+    participants_by_expense: dict[uuid.UUID, list[ExpenseParticipant]] = {}
+    for participant in participants:
+        participants_by_expense.setdefault(participant.expense_id, []).append(
+            participant
+        )
+
+    return ExpensesPublic(
+        data=[
+            _build_expense_public(expense, participants_by_expense.get(expense.id, []))
+            for expense in expenses
+        ],
+        count=count,
+    )
 
 
 @router.post("/{group_id}/expenses", response_model=ExpensePublic)
@@ -81,78 +230,117 @@ def create_expense(
     """
     group = session.get(Group, group_id)
     if not group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
 
     member_ids_query = select(GroupMember.user_id).where(GroupMember.group_id == group_id)
     group_member_ids = set(session.exec(member_ids_query).all())
 
     if current_user.id not in group_member_ids:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a member of this group")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of this group",
+        )
     if expense_in.payer_id not in group_member_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payer is not a member of this group")
-    
-    participant_ids = {p.user_id for p in expense_in.participants}
-    if not participant_ids.issubset(group_member_ids):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more participants are not members of this group")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payer is not a member of this group",
+        )
 
-    amounts_owed = {}
+    amounts_owed: dict[uuid.UUID, float] = {}
     if expense_in.division_mode == "equitable":
-        num_participants = len(participant_ids)
+        num_participants = len(group_member_ids)
         split_amount = round(expense_in.amount / num_participants, 2)
-        for user_id in participant_ids:
+        for user_id in group_member_ids:
             amounts_owed[user_id] = split_amount
         remainder = round(expense_in.amount - sum(amounts_owed.values()), 2)
         if remainder != 0:
-            last_participant_id = list(participant_ids)[-1]
+            last_participant_id = next(reversed(tuple(group_member_ids)))
             amounts_owed[last_participant_id] += remainder
-
     elif expense_in.division_mode == "custom":
-        total_custom_amount = 0
-        for p in expense_in.participants:
-            if p.amount is None or p.amount <= 0:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Custom amount for user {p.user_id} must be a positive number")
-            amounts_owed[p.user_id] = p.amount
-            total_custom_amount += p.amount
-        
+        if not expense_in.participants:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Custom division requires participants",
+            )
+        participant_ids = [participant.user_id for participant in expense_in.participants]
+        if len(participant_ids) != len(set(participant_ids)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Participants must be unique",
+            )
+        if not set(participant_ids).issubset(group_member_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="One or more participants are not members of this group",
+            )
+
+        total_custom_amount = 0.0
+        for participant in expense_in.participants:
+            if participant.amount is None or participant.amount <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Custom amount for user {participant.user_id} must be a positive number"
+                    ),
+                )
+            amounts_owed[participant.user_id] = participant.amount
+            total_custom_amount += participant.amount
+
         if not abs(total_custom_amount - expense_in.amount) < 0.01:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sum of custom amounts does not match the total expense amount")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sum of custom amounts does not match the total expense amount",
+            )
     else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid division mode")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid division mode"
+        )
 
     try:
-        db_expense = Expense.model_validate(expense_in, update={"group_id": group_id})
+        db_expense = Expense(
+            description=expense_in.description,
+            amount=expense_in.amount,
+            payer_id=expense_in.payer_id,
+            group_id=group_id,
+        )
         session.add(db_expense)
         session.flush()
 
+        participants_list: list[ExpenseParticipant] = []
         for user_id, amount_owed in amounts_owed.items():
             participant = ExpenseParticipant(
                 expense_id=db_expense.id, user_id=user_id, amount_owed=amount_owed
             )
             session.add(participant)
+            participants_list.append(participant)
 
         group_members_query = select(GroupMember).where(GroupMember.group_id == group_id)
-        group_members_map = {gm.user_id: gm for gm in session.exec(group_members_query).all()}
+        group_members_map = {
+            group_member.user_id: group_member
+            for group_member in session.exec(group_members_query).all()
+        }
 
         payer_share = amounts_owed.get(expense_in.payer_id, 0.0)
-        group_members_map[expense_in.payer_id].balance += (expense_in.amount - payer_share)
+        group_members_map[expense_in.payer_id].balance += expense_in.amount - payer_share
 
-        for user_id, amount_owed_val in amounts_owed.items():
+        for user_id, amount_owed in amounts_owed.items():
             if user_id != expense_in.payer_id:
-                group_members_map[user_id].balance -= amount_owed_val
+                group_members_map[user_id].balance -= amount_owed
 
         session.commit()
         session.refresh(db_expense)
-
-    except Exception:
+    except Exception as exc:
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not process expense due to an internal error",
-        )
+            detail=f"Error interno: {exc}",
+        ) from exc
 
-    return db_expense
+    return _build_expense_public(db_expense, participants_list)
 
-
+  
 @router.delete("/{group_id}", response_model=Message)
 def delete_group(
     *,

@@ -4,119 +4,146 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from tests.utils.group import create_random_group, add_user_to_group
-from tests.utils.user import create_random_user
+from app.models import GroupMember
+from tests.utils.user import authentication_token_from_email, create_random_user
 
-def test_delete_group_success_empty_balances(
+
+def test_create_group_expense_is_split_across_all_group_members(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
-    """
-    CA 1: Successful deletion without outstanding balances
-    """
-    # Create user dynamically from token headers or use the fixture setup to get the actual user
-    r = client.get(f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers)
-    current_user_id = r.json()["id"]
-    from app.models import User
-    current_user = db.get(User, current_user_id)
+    group_response = client.post(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+        json={"name": "Viaje", "description": "Gastos compartidos"},
+    )
+    assert group_response.status_code == 200
+    group = group_response.json()
+    group_id = uuid.UUID(group["id"])
 
-    # 1. Arrange: Create group with zero balance for admin
-    group = create_random_group(db=db, user=current_user, is_admin=True, balance=0.0)
-
-    # 2. Act: Delete the group
-    response = client.delete(
-        f"{settings.API_V1_STR}/groups/{group.id}",
+    current_user_response = client.get(
+        f"{settings.API_V1_STR}/users/me",
         headers=normal_user_token_headers,
     )
+    current_user = current_user_response.json()
 
-    # 3. Assert
-    assert response.status_code == 200
-    assert response.json()["message"] == "Group deleted successfully"
+    second_user = create_random_user(db)
+    db.add(
+        GroupMember(
+            user_id=second_user.id,
+            group_id=group_id,
+            is_admin=False,
+            balance=0.0,
+        )
+    )
+    db.commit()
 
-    # CA 4 Check: The group no longer exists
-    r_list = client.get(f"{settings.API_V1_STR}/groups/", headers=normal_user_token_headers)
-    assert r_list.status_code == 200
-    groups_list = r_list.json()["data"]
-    assert len([g for g in groups_list if g["id"] == str(group.id)]) == 0
+    expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Supermercado",
+            "amount": 100,
+            "payer_id": current_user["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert expense_response.status_code == 200
+    expense = expense_response.json()
+    assert expense["group_id"] == group["id"]
+    assert expense["payer_id"] == current_user["id"]
+    assert len(expense["participants"]) == 2
+    assert sorted(participant["amount_owed"] for participant in expense["participants"]) == [
+        50.0,
+        50.0,
+    ]
 
-def test_delete_group_fails_with_outstanding_balances(
+    payer_groups_response = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+    )
+    assert payer_groups_response.status_code == 200
+    payer_group = payer_groups_response.json()["data"][0]
+    assert payer_group["current_user_balance"] == 50.0
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
+    )
+    second_user_groups_response = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=second_user_headers,
+    )
+    assert second_user_groups_response.status_code == 200
+    second_user_group = second_user_groups_response.json()["data"][0]
+    assert second_user_group["current_user_balance"] == -50.0
+
+
+def test_list_current_user_group_expenses_returns_group_debt(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
-    """
-    CA 2: Restriction by outstanding balances
-    """
-    r = client.get(f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers)
-    current_user_id = r.json()["id"]
-    from app.models import User
-    current_user = db.get(User, current_user_id)
+    group_response = client.post(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+        json={"name": "Casa", "description": "Servicios"},
+    )
+    assert group_response.status_code == 200
+    group = group_response.json()
+    group_id = uuid.UUID(group["id"])
 
-    # 1. Arrange: Create group and admin has a non-zero balance (e.g. they owe money or are owed money)
-    # We set admin balance to 10.5
-    group = create_random_group(db=db, user=current_user, is_admin=True, balance=10.5)
-
-    # 2. Act: Try to delete the group
-    response = client.delete(
-        f"{settings.API_V1_STR}/groups/{group.id}",
+    owner_response = client.get(
+        f"{settings.API_V1_STR}/users/me",
         headers=normal_user_token_headers,
     )
+    owner = owner_response.json()
 
-    # 3. Assert
-    assert response.status_code == 400
-    assert "Cannot delete group with outstanding balances" in response.json()["detail"]
+    second_user = create_random_user(db)
+    db.add(
+        GroupMember(
+            user_id=second_user.id,
+            group_id=group_id,
+            is_admin=False,
+            balance=0.0,
+        )
+    )
+    db.commit()
 
-
-def test_delete_group_forbidden_if_not_admin(
-    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
-) -> None:
-    """
-    CA 3: Restriction by permissions
-    """
-    r = client.get(f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers)
-    current_user_id = r.json()["id"]
-    from app.models import User
-    current_user = db.get(User, current_user_id)
-
-    # 1. Arrange: Create a group where the user is NOT an admin
-    group = create_random_group(db=db, user=current_user, is_admin=False, balance=0.0)
-
-    # 2. Act: Try to delete the group
-    response = client.delete(
-        f"{settings.API_V1_STR}/groups/{group.id}",
-        headers=normal_user_token_headers,
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
     )
 
-    # 3. Assert
-    assert response.status_code == 403
-    assert "Only group admins can delete the group" in response.json()["detail"]
-
-
-def test_delete_group_forbidden_if_not_member(
-    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
-) -> None:
-    """Extra test: Ensure a completely unrelated user cannot delete the group."""
-    # 1. Arrange: Completely distinct random user creates the group
-    other_user = create_random_user(db)
-    group = create_random_group(db=db, user=other_user, is_admin=True, balance=0.0)
-
-    # 2. Act: Current user tries to delete the other user's group
-    response = client.delete(
-        f"{settings.API_V1_STR}/groups/{group.id}",
+    expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
         headers=normal_user_token_headers,
+        json={
+            "description": "Internet",
+            "amount": 80,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
     )
+    assert expense_response.status_code == 200
 
-    # 3. Assert
-    assert response.status_code == 403
-    assert "User is not a member of the group" in response.json()["detail"]
-
-
-def test_delete_group_not_found(
-    client: TestClient, normal_user_token_headers: dict[str, str]
-) -> None:
-    """Extra test: Handle group not found gracefully."""
-    fake_id = uuid.uuid4()
-    response = client.delete(
-        f"{settings.API_V1_STR}/groups/{fake_id}",
-        headers=normal_user_token_headers,
+    my_expenses_response = client.get(
+        f"{settings.API_V1_STR}/groups/me/expenses",
+        headers=second_user_headers,
     )
+    assert my_expenses_response.status_code == 200
+    content = my_expenses_response.json()
+    assert content["count"] >= 1
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Group not found"
+    matching_expense = next(
+        expense for expense in content["data"] if expense["group_id"] == group["id"]
+    )
+    assert matching_expense["group_name"] == "Casa"
+    assert matching_expense["description"] == "Internet"
+    assert matching_expense["current_user_amount_owed"] == 40.0
+
+    group_expenses_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=second_user_headers,
+    )
+    assert group_expenses_response.status_code == 200
+    group_expenses = group_expenses_response.json()
+    assert group_expenses["count"] >= 1
+    assert group_expenses["data"][0]["group_id"] == group["id"]
