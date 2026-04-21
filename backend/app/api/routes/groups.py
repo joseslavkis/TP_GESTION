@@ -1,11 +1,14 @@
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi import Depends
+from pydantic import Field
 from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
+    Message,
     Expense,
     ExpenseCreate,
     ExpenseParticipant,
@@ -48,11 +51,11 @@ def _build_expense_public(
 def list_user_groups(
     session: SessionDep,
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 100,
+    skip: Annotated[int, Field(ge=0)] = 0,
+    limit: Annotated[int, Field(ge=1, le=1000)] = 100,
 ) -> Any:
     """
-    Listar los grupos del usuario autenticado.
+    List all groups for the current user.
     """
     base_query = (
         select(Group, GroupMember.balance)
@@ -114,11 +117,11 @@ def create_group(
 def list_current_user_group_expenses(
     session: SessionDep,
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 100,
+    skip: Annotated[int, Field(ge=0)] = 0,
+    limit: Annotated[int, Field(ge=1, le=1000)] = 100,
 ) -> Any:
     """
-    Listar todos los gastos de los grupos del usuario con el monto que le corresponde.
+    List all expenses from groups the user belongs to with the amount owed.
     """
     base_query = (
         select(Expense, Group.name, ExpenseParticipant.amount_owed)
@@ -163,11 +166,11 @@ def list_group_expenses(
     session: SessionDep,
     current_user: CurrentUser,
     group_id: uuid.UUID,
-    skip: int = 0,
-    limit: int = 100,
+    skip: Annotated[int, Field(ge=0)] = 0,
+    limit: Annotated[int, Field(ge=1, le=1000)] = 100,
 ) -> Any:
     """
-    Listar los gastos de un grupo para sus miembros.
+    List expenses for a specific group.
     """
     membership = session.exec(
         select(GroupMember).where(
