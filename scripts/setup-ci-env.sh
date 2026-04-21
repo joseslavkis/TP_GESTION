@@ -30,8 +30,8 @@ SENTRY_DSN=
 ENVIRONMENT=local
 BACKEND_CORS_ORIGINS=http://localhost:5173,http://localhost:8000
 STACK_NAME=test
-DOCKER_IMAGE_BACKEND=test
-DOCKER_IMAGE_FRONTEND=test
+DOCKER_IMAGE_BACKEND=test-backend
+DOCKER_IMAGE_FRONTEND=test-frontend
 EOF
 
 # Compose interpolation uses --env-file, but services still declare env_file: .env
