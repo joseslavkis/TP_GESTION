@@ -172,22 +172,22 @@ def list_group_expenses(
     """
     List expenses for a specific group.
     """
-    membership = session.exec(
+    group_check = session.exec(
         select(GroupMember).where(
             GroupMember.group_id == group_id,
             GroupMember.user_id == current_user.id,
         )
     ).first()
-    if not membership:
+    if not group_check:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a member of this group",
         )
 
-    count_statement = select(func.count()).select_from(Expense).where(
-        Expense.group_id == group_id
-    )
-    count = session.exec(count_statement).one()
+    count = session.exec(
+        select(func.count(Expense.id)).where(Expense.group_id == group_id)
+    ).one()
+
     expenses = session.exec(
         select(Expense)
         .where(Expense.group_id == group_id)
@@ -196,17 +196,17 @@ def list_group_expenses(
         .limit(limit)
     ).all()
 
-    participants = (
-        session.exec(
-            select(ExpenseParticipant).where(
-                ExpenseParticipant.expense_id.in_([expense.id for expense in expenses])
-            )
-        ).all()
-        if expenses
-        else []
-    )
+    if not expenses:
+        return ExpensesPublic(data=[], count=count)
+
+    participant_rows = session.exec(
+        select(ExpenseParticipant).where(
+            ExpenseParticipant.expense_id.in_([e.id for e in expenses])
+        )
+    ).all()
+
     participants_by_expense: dict[uuid.UUID, list[ExpenseParticipant]] = {}
-    for participant in participants:
+    for participant in participant_rows:
         participants_by_expense.setdefault(participant.expense_id, []).append(
             participant
         )
