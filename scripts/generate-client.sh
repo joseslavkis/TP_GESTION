@@ -3,6 +3,16 @@
 set -e
 set -x
 
+if [ -f .env.ci ]; then
+  set -a
+  source .env.ci
+  set +a
+elif [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
 cd backend
 
 export SECRET_KEY="${SECRET_KEY:-ci-test-secret-key-for-testing-only}"
