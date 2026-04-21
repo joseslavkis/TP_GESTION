@@ -16,15 +16,19 @@ import {
   User,
 } from "lucide-react";
 
+// ─── Route ────────────────────────────────────────────────────────────────────
+
 export const Route = createFileRoute("/groups/$groupId")({
   component: GroupDetail,
   head: ({ params }) => ({
     meta: [
-      { title: `Grupo — Gastos Grupales` },
+      { title: "Grupo — Gastos Grupales" },
       { name: "description", content: `Detalle del grupo ${params.groupId}` },
     ],
   }),
 });
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Category =
   | "todos"
@@ -45,8 +49,10 @@ type Expense = {
   paidByInitials: string;
   paidByColor: string;
   date: string; // ISO
-  yourShare: number; // negative = debes, positive = te deben
+  yourShare: number; // positive = te deben, negative = debés
 };
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const groupInfo = {
   name: "Viaje a Bariloche",
@@ -143,6 +149,8 @@ const expenses: Expense[] = [
   },
 ];
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const categoryMeta: Record<
   Exclude<Category, "todos">,
   { label: string; icon: React.ReactNode }
@@ -165,6 +173,8 @@ const filterChips: { id: Category; label: string }[] = [
   { id: "salidas", label: "Salidas" },
 ];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function formatARS(n: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
@@ -181,19 +191,23 @@ function formatDate(iso: string) {
   });
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 function GroupDetail() {
   const [category, setCategory] = useState<Category>("todos");
   const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    return expenses.filter((e) => {
-      const matchCat = category === "todos" || e.category === category;
-      const matchQ = e.description
-        .toLowerCase()
-        .includes(query.toLowerCase().trim());
-      return matchCat && matchQ;
-    });
-  }, [category, query]);
+  const filtered = useMemo(
+    () =>
+      expenses.filter((e) => {
+        const matchCat = category === "todos" || e.category === category;
+        const matchQ = e.description
+          .toLowerCase()
+          .includes(query.toLowerCase().trim());
+        return matchCat && matchQ;
+      }),
+    [category, query]
+  );
 
   const balancePositive = groupInfo.yourBalance >= 0;
 
@@ -287,7 +301,7 @@ function GroupDetail() {
           </div>
         </section>
 
-        {/* Expense history */}
+        {/* Expense list */}
         <section className="px-5 mt-6">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">
