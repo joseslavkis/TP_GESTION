@@ -59,6 +59,20 @@ jobs:
         limit-access-to-actor: true
     - name: Install uv
       uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+    - name: Set up environment
+      run: |
+        echo "FRONTEND_HOST=http://localhost:5173" >> $GITHUB_ENV
+        echo "DOMAIN=localhost" >> $GITHUB_ENV
+        echo "PROJECT_NAME=TestApp" >> $GITHUB_ENV
+        echo "POSTGRES_SERVER=localhost" >> $GITHUB_ENV
+        echo "POSTGRES_USER=postgres" >> $GITHUB_ENV
+        echo "POSTGRES_PASSWORD=postgres" >> $GITHUB_ENV
+        echo "POSTGRES_DB=app" >> $GITHUB_ENV
+        echo "FIRST_SUPERUSER=test@example.com" >> $GITHUB_ENV
+        echo "FIRST_SUPERUSER_PASSWORD=testpassword123" >> $GITHUB_ENV
+        echo "STACK_NAME=test" >> $GITHUB_ENV
+        echo "DOCKER_IMAGE_BACKEND=test" >> $GITHUB_ENV
+        echo "DOCKER_IMAGE_FRONTEND=test" >> $GITHUB_ENV
     - run: uv sync
       working-directory: backend
     - run: bun ci

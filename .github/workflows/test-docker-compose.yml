@@ -16,6 +16,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up environment
+        run: |
+          echo "FRONTEND_HOST=http://localhost:5173" >> $GITHUB_ENV
+          echo "DOMAIN=localhost" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=postgres" >> $GITHUB_ENV
+          echo "POSTGRES_USER=postgres" >> $GITHUB_ENV
+          echo "POSTGRES_DB=app" >> $GITHUB_ENV
+          echo "STACK_NAME=test" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE_BACKEND=test" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE_FRONTEND=test" >> $GITHUB_ENV
       - run: docker compose build
       - run: docker compose down -v --remove-orphans
       - run: docker compose up -d --wait backend frontend adminer
