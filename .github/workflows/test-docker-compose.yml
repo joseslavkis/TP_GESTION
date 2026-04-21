@@ -16,21 +16,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Set up environment
+      - name: Set up CI environment file
+        - name: Set up CI environment file
         run: |
-          echo "FRONTEND_HOST=http://localhost:5173" >> $GITHUB_ENV
-          echo "DOMAIN=localhost" >> $GITHUB_ENV
-          echo "POSTGRES_PASSWORD=postgres" >> $GITHUB_ENV
-          echo "POSTGRES_USER=postgres" >> $GITHUB_ENV
-          echo "POSTGRES_DB=app" >> $GITHUB_ENV
-          echo "STACK_NAME=test" >> $GITHUB_ENV
-          echo "DOCKER_IMAGE_BACKEND=test" >> $GITHUB_ENV
-          echo "DOCKER_IMAGE_FRONTEND=test" >> $GITHUB_ENV
-      - run: docker compose build
-      - run: docker compose down -v --remove-orphans
-      - run: docker compose up -d --wait backend frontend adminer
+          cat > .env.ci << 'EOF'
+          SECRET_KEY=ci-test-secret-key-for-testing-only
+          FRONTEND_HOST=http://localhost:5173
+          DOMAIN=localhost
+          PROJECT_NAME=TestApp
+          POSTGRES_SERVER=localhost
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=app
+          FIRST_SUPERUSER=test@example.com
+          FIRST_SUPERUSER_PASSWORD=testpassword123
+          ENVIRONMENT=local
+          BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:8000"]
+          STACK_NAME=test
+          DOCKER_IMAGE_BACKEND=test
+          DOCKER_IMAGE_FRONTEND=test
+          EOF
+      - run: docker compose --env-file .env.ci build
+      - run: docker compose --env-file .env.ci down -v --remove-orphans
+      - run: docker compose --env-file .env.ci up -d --wait backend frontend adminer
       - name: Test backend is up
         run: curl http://localhost:8000/api/v1/utils/health-check
       - name: Test frontend is up
         run: curl http://localhost:5173
-      - run: docker compose down -v --remove-orphans
+      - run: docker compose --env-file .env.ci down -v --remove-orphans

@@ -59,30 +59,35 @@ jobs:
         limit-access-to-actor: true
     - name: Install uv
       uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-    - name: Set up environment
+    - name: Set up CI environment file
       run: |
-        echo "FRONTEND_HOST=http://localhost:5173" >> $GITHUB_ENV
-        echo "DOMAIN=localhost" >> $GITHUB_ENV
-        echo "PROJECT_NAME=TestApp" >> $GITHUB_ENV
-        echo "POSTGRES_SERVER=localhost" >> $GITHUB_ENV
-        echo "POSTGRES_USER=postgres" >> $GITHUB_ENV
-        echo "POSTGRES_PASSWORD=postgres" >> $GITHUB_ENV
-        echo "POSTGRES_DB=app" >> $GITHUB_ENV
-        echo "FIRST_SUPERUSER=test@example.com" >> $GITHUB_ENV
-        echo "FIRST_SUPERUSER_PASSWORD=testpassword123" >> $GITHUB_ENV
-        echo "STACK_NAME=test" >> $GITHUB_ENV
-        echo "DOCKER_IMAGE_BACKEND=test" >> $GITHUB_ENV
-        echo "DOCKER_IMAGE_FRONTEND=test" >> $GITHUB_ENV
+        cat > .env.ci << 'EOF'
+        SECRET_KEY=ci-test-secret-key-for-testing-only
+        FRONTEND_HOST=http://localhost:5173
+        DOMAIN=localhost
+        PROJECT_NAME=TestApp
+        POSTGRES_SERVER=localhost
+        POSTGRES_USER=postgres
+        POSTGRES_PASSWORD=postgres
+        POSTGRES_DB=app
+        FIRST_SUPERUSER=test@example.com
+        FIRST_SUPERUSER_PASSWORD=testpassword123
+        STACK_NAME=test
+        DOCKER_IMAGE_BACKEND=test
+        DOCKER_IMAGE_FRONTEND=test
+        ENVIRONMENT=local
+        BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:8000"]
+        EOF
     - run: uv sync
       working-directory: backend
     - run: bun ci
       working-directory: frontend
     - run: bash scripts/generate-client.sh
-    - run: docker compose build
-    - run: docker compose down -v --remove-orphans
+    - run: docker compose --env-file .env.ci build
+    - run: docker compose --env-file .env.ci down -v --remove-orphans
     - name: Run Playwright tests
-      run: docker compose run --rm playwright bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-    - run: docker compose down -v --remove-orphans
+      run: docker compose --env-file .env.ci run --rm playwright bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    - run: docker compose --env-file .env.ci down -v --remove-orphans
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
