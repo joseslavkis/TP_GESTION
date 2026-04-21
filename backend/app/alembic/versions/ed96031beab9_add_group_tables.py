@@ -33,7 +33,7 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('group_id', sa.Uuid(), nullable=False),
     sa.Column('payer_id', sa.Uuid(), nullable=False),
-    sa.ForeignKeyConstraint(['group_id'], ['group.id'], ),
+    sa.ForeignKeyConstraint(['group_id'], ['group.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['payer_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
