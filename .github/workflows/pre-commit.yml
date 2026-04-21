@@ -55,8 +55,17 @@ jobs:
         run: bun ci
       - name: Run prek - pre-commit
         id: precommit
-        run: uvx prek run --from-ref origin/${GITHUB_BASE_REF} --to-ref HEAD --show-diff-on-failure
+        run: |
+          set -o pipefail
+          uvx prek run -v --from-ref origin/${GITHUB_BASE_REF} --to-ref HEAD --show-diff-on-failure 2>&1 | tee prek.log
         continue-on-error: true
+      - name: Upload pre-commit log
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: pre-commit-log
+          path: prek.log
+          if-no-files-found: ignore
       - name: Commit and push changes
         if: env.HAS_SECRETS == 'true'
         run: |
@@ -75,7 +84,12 @@ jobs:
           msg: 🎨 Auto format and update with pre-commit
       - name: Error out on pre-commit errors
         if: steps.precommit.outcome == 'failure'
-        run: exit 1
+        run: |
+          if [ -f prek.log ]; then
+            echo "Last 200 lines from prek.log:"
+            tail -n 200 prek.log
+          fi
+          exit 1
 
   # https://github.com/marketplace/actions/alls-green#why
   pre-commit-alls-green:  # This job does nothing and is only used for the branch protection

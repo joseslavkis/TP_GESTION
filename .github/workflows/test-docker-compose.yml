@@ -26,9 +26,20 @@ jobs:
       - name: Debug Compose failure
         if: failure()
         run: |
+          mkdir -p compose-debug
           docker compose --env-file .env.ci -f compose.yml -f compose.override.yml ps -a
+          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml ps -a > compose-debug/ps.txt
+          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color frontend > compose-debug/frontend.log
+          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color backend prestart db adminer > compose-debug/services.log
+          docker inspect tp_gestion-frontend-1 > compose-debug/frontend-inspect.json || true
           docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color frontend
-          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color backend prestart db adminer
+      - name: Upload Compose debug logs
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: compose-debug
+          path: compose-debug
+          include-hidden-files: true
       - name: Test backend is up
         run: curl http://localhost:8000/api/v1/utils/health-check
       - name: Test frontend is up
