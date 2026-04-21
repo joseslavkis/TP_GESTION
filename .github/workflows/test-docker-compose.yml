@@ -23,8 +23,15 @@ jobs:
       - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml build
       - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml down -v --remove-orphans
       - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml up -d --wait backend frontend adminer
+      - name: Debug Compose failure
+        if: failure()
+        run: |
+          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml ps -a
+          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color frontend
+          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color backend prestart db adminer
       - name: Test backend is up
         run: curl http://localhost:8000/api/v1/utils/health-check
       - name: Test frontend is up
         run: curl http://localhost:5173
       - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml down -v --remove-orphans
+        if: always()

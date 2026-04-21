@@ -135,6 +135,7 @@ function Login() {
 
             <LoadingButton
               type="submit"
+              data-testid="login-submit"
               loading={loginMutation.isPending}
               className="h-14 w-full rounded-2xl bg-gradient-to-br from-primary to-emerald-800 text-lg font-extrabold text-primary-foreground shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]"
             >
