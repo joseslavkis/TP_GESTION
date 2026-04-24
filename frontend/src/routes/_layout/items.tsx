@@ -36,7 +36,9 @@ function ItemsTableContent() {
         <div className="rounded-full bg-muted p-4 mb-4">
           <Search className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold">Todavia no hay gastos cargados</h3>
+        <h3 className="text-lg font-semibold">
+          Todavia no hay gastos cargados
+        </h3>
         <p className="text-muted-foreground">
           Esta pantalla puede reutilizarse como base para el modulo de gastos
         </p>

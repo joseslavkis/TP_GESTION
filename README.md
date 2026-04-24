@@ -95,6 +95,7 @@ Estos son los comandos usados para correr y probar el estado actual del proyecto
 Desde la raiz del repositorio:
 
 ```bash
+cp .env.example .env
 uv sync
 ```
 

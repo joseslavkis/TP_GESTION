@@ -9,6 +9,87 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+export type ExpenseCreate = {
+    description: string;
+    amount: number;
+    payer_id: string;
+    participants?: Array<ExpenseParticipantIn>;
+    division_mode: 'equitable' | 'custom';
+};
+
+export type division_mode = 'equitable' | 'custom';
+
+export type ExpenseParticipantIn = {
+    user_id: string;
+    amount?: (number | null);
+};
+
+export type ExpenseParticipantPublic = {
+    user_id: string;
+    amount_owed: number;
+};
+
+export type ExpensePublic = {
+    description: string;
+    amount: number;
+    id: string;
+    group_id: string;
+    payer_id: string;
+    created_at: string;
+    participants: Array<ExpenseParticipantPublic>;
+};
+
+export type ExpensesPublic = {
+    data: Array<ExpensePublic>;
+    count: number;
+};
+
+export type GroupCreate = {
+    name: string;
+    description?: (string | null);
+};
+
+export type GroupDetailPublic = {
+    name: string;
+    description?: (string | null);
+    id: string;
+    created_at: string;
+    current_user_balance: number;
+    members: Array<GroupMemberPublic>;
+};
+
+export type GroupMemberCreate = {
+    email: string;
+    is_admin?: boolean;
+};
+
+export type GroupMemberPublic = {
+    user_id: string;
+    email: string;
+    full_name?: (string | null);
+    is_admin: boolean;
+    balance: number;
+    joined_at: string;
+};
+
+export type GroupPublic = {
+    name: string;
+    description?: (string | null);
+    id: string;
+    created_at: string;
+    current_user_balance: number;
+};
+
+export type GroupsPublic = {
+    data: Array<GroupPublic>;
+    count: number;
+};
+
+export type GroupUpdate = {
+    name?: (string | null);
+    description?: (string | null);
+};
+
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
@@ -70,6 +151,30 @@ export type UserCreate = {
     password: string;
 };
 
+export type UserExpensePublic = {
+    expense_id: string;
+    group_id: string;
+    group_name: string;
+    description: string;
+    amount: number;
+    payer_id: string;
+    created_at: string;
+    current_user_amount_owed: number;
+};
+
+export type UserExpensesPublic = {
+    data: Array<UserExpensePublic>;
+    count: number;
+};
+
+export type UserProfileInfo = {
+    id: string;
+    email: string;
+    full_name?: (string | null);
+    display_name: string;
+    initial: string;
+};
+
 export type UserPublic = {
     email: string;
     is_active?: boolean;
@@ -112,6 +217,74 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type GroupsListUserGroupsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type GroupsListUserGroupsResponse = (GroupsPublic);
+
+export type GroupsCreateGroupData = {
+    requestBody: GroupCreate;
+};
+
+export type GroupsCreateGroupResponse = (GroupPublic);
+
+export type GroupsReadGroupData = {
+    groupId: string;
+};
+
+export type GroupsReadGroupResponse = (GroupDetailPublic);
+
+export type GroupsUpdateGroupData = {
+    groupId: string;
+    requestBody: GroupUpdate;
+};
+
+export type GroupsUpdateGroupResponse = (GroupDetailPublic);
+
+export type GroupsDeleteGroupData = {
+    groupId: string;
+};
+
+export type GroupsDeleteGroupResponse = (Message);
+
+export type GroupsAddGroupMemberData = {
+    groupId: string;
+    requestBody: GroupMemberCreate;
+};
+
+export type GroupsAddGroupMemberResponse = (GroupMemberPublic);
+
+export type GroupsRemoveGroupMemberData = {
+    groupId: string;
+    userId: string;
+};
+
+export type GroupsRemoveGroupMemberResponse = (Message);
+
+export type GroupsListCurrentUserGroupExpensesData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type GroupsListCurrentUserGroupExpensesResponse = (UserExpensesPublic);
+
+export type GroupsListGroupExpensesData = {
+    groupId: string;
+    limit?: number;
+    skip?: number;
+};
+
+export type GroupsListGroupExpensesResponse = (ExpensesPublic);
+
+export type GroupsCreateExpenseData = {
+    groupId: string;
+    requestBody: ExpenseCreate;
+};
+
+export type GroupsCreateExpenseResponse = (ExpensePublic);
 
 export type ItemsReadItemsData = {
     limit?: number;
@@ -205,6 +378,8 @@ export type UsersUpdatePasswordMeData = {
 };
 
 export type UsersUpdatePasswordMeResponse = (Message);
+
+export type UsersReadUserProfileResponse = (UserProfileInfo);
 
 export type UsersRegisterUserData = {
     requestBody: UserRegister;

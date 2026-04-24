@@ -10,6 +10,12 @@ Esta base se esta usando para el TP de "Gastos Grupales". El objetivo del desarr
 - `uv` para el backend
 - `bun` para el frontend
 
+Antes de levantar servicios por primera vez, crear el archivo de entorno local:
+
+```bash
+cp .env.example .env
+```
+
 ## Levantar todo con Docker
 
 ```bash

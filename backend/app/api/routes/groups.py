@@ -101,8 +101,8 @@ def _build_group_detail(
 ) -> GroupDetailPublic:
     member_rows = session.exec(
         select(GroupMember, User)
-        .join(User, User.id == GroupMember.user_id)
-        .where(GroupMember.group_id == group.id)
+        .join(User, col(User.id) == col(GroupMember.user_id))
+        .where(col(GroupMember.group_id) == group.id)
         .order_by(col(GroupMember.joined_at))
     ).all()
 
@@ -130,11 +130,11 @@ def list_user_groups(
     """
     base_query = (
         select(Group, GroupMember.balance)
-        .join(GroupMember)
-        .where(GroupMember.user_id == current_user.id)
+        .join(GroupMember, col(Group.id) == col(GroupMember.group_id))
+        .where(col(GroupMember.user_id) == current_user.id)
     )
     count_statement = select(func.count()).select_from(
-        base_query.with_only_columns(Group.id).subquery()
+        base_query.with_only_columns(col(Group.id)).subquery()
     )
     count = session.exec(count_statement).one()
     groups_statement = (
@@ -321,7 +321,9 @@ def remove_group_member(
 
     if member.is_admin:
         admins_count = session.exec(
-            select(func.count()).select_from(GroupMember).where(
+            select(func.count())
+            .select_from(GroupMember)
+            .where(
                 GroupMember.group_id == group_id,
                 GroupMember.is_admin == True,  # noqa: E712
             )
@@ -349,20 +351,20 @@ def list_current_user_group_expenses(
     """
     base_query = (
         select(Expense, Group.name, ExpenseParticipant.amount_owed)
-        .join(Group, Group.id == Expense.group_id)
+        .join(Group, col(Group.id) == col(Expense.group_id))
         .join(
             GroupMember,
-            (GroupMember.group_id == Expense.group_id)
-            & (GroupMember.user_id == current_user.id),
+            (col(GroupMember.group_id) == col(Expense.group_id))
+            & (col(GroupMember.user_id) == current_user.id),
         )
         .outerjoin(
             ExpenseParticipant,
-            (ExpenseParticipant.expense_id == Expense.id)
-            & (ExpenseParticipant.user_id == current_user.id),
+            (col(ExpenseParticipant.expense_id) == col(Expense.id))
+            & (col(ExpenseParticipant.user_id) == current_user.id),
         )
     )
     count_statement = select(func.count()).select_from(
-        base_query.with_only_columns(Expense.id).subquery()
+        base_query.with_only_columns(col(Expense.id)).subquery()
     )
     count = session.exec(count_statement).one()
     expenses_statement = (
@@ -408,8 +410,8 @@ def list_group_expenses(
             detail="User is not a member of this group",
         )
 
-    count_statement = select(func.count()).select_from(Expense).where(
-        Expense.group_id == group_id
+    count_statement = (
+        select(func.count()).select_from(Expense).where(Expense.group_id == group_id)
     )
     count = session.exec(count_statement).one()
     expenses = session.exec(
@@ -423,7 +425,9 @@ def list_group_expenses(
     participants = (
         session.exec(
             select(ExpenseParticipant).where(
-                ExpenseParticipant.expense_id.in_([expense.id for expense in expenses])
+                col(ExpenseParticipant.expense_id).in_(
+                    [expense.id for expense in expenses]
+                )
             )
         ).all()
         if expenses
@@ -461,7 +465,9 @@ def create_expense(
             status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
         )
 
-    member_ids_query = select(GroupMember.user_id).where(GroupMember.group_id == group_id)
+    member_ids_query = select(GroupMember.user_id).where(
+        GroupMember.group_id == group_id
+    )
     group_member_ids = set(session.exec(member_ids_query).all())
 
     if current_user.id not in group_member_ids:
@@ -491,7 +497,9 @@ def create_expense(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Custom division requires participants",
             )
-        participant_ids = [participant.user_id for participant in expense_in.participants]
+        participant_ids = [
+            participant.user_id for participant in expense_in.participants
+        ]
         if len(participant_ids) != len(set(participant_ids)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -537,20 +545,24 @@ def create_expense(
 
         participants_list: list[ExpenseParticipant] = []
         for user_id, amount_owed in amounts_owed.items():
-            participant = ExpenseParticipant(
+            expense_participant = ExpenseParticipant(
                 expense_id=db_expense.id, user_id=user_id, amount_owed=amount_owed
             )
-            session.add(participant)
-            participants_list.append(participant)
+            session.add(expense_participant)
+            participants_list.append(expense_participant)
 
-        group_members_query = select(GroupMember).where(GroupMember.group_id == group_id)
+        group_members_query = select(GroupMember).where(
+            GroupMember.group_id == group_id
+        )
         group_members_map = {
             group_member.user_id: group_member
             for group_member in session.exec(group_members_query).all()
         }
 
         payer_share = amounts_owed.get(expense_in.payer_id, 0.0)
-        group_members_map[expense_in.payer_id].balance += expense_in.amount - payer_share
+        group_members_map[expense_in.payer_id].balance += (
+            expense_in.amount - payer_share
+        )
 
         for user_id, amount_owed in amounts_owed.items():
             if user_id != expense_in.payer_id:

@@ -57,6 +57,368 @@ export const Body_login_login_access_tokenSchema = {
     title: 'Body_login-login_access_token'
 } as const;
 
+export const ExpenseCreateSchema = {
+    properties: {
+        description: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Description'
+        },
+        amount: {
+            type: 'number',
+            exclusiveMinimum: 0,
+            title: 'Amount'
+        },
+        payer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Payer Id'
+        },
+        participants: {
+            items: {
+                '$ref': '#/components/schemas/ExpenseParticipantIn'
+            },
+            type: 'array',
+            title: 'Participants'
+        },
+        division_mode: {
+            type: 'string',
+            enum: ['equitable', 'custom'],
+            title: 'Division Mode'
+        }
+    },
+    type: 'object',
+    required: ['description', 'amount', 'payer_id', 'division_mode'],
+    title: 'ExpenseCreate'
+} as const;
+
+export const ExpenseParticipantInSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        amount: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Amount'
+        }
+    },
+    type: 'object',
+    required: ['user_id'],
+    title: 'ExpenseParticipantIn'
+} as const;
+
+export const ExpenseParticipantPublicSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        amount_owed: {
+            type: 'number',
+            title: 'Amount Owed'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'amount_owed'],
+    title: 'ExpenseParticipantPublic'
+} as const;
+
+export const ExpensePublicSchema = {
+    properties: {
+        description: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Description'
+        },
+        amount: {
+            type: 'number',
+            exclusiveMinimum: 0,
+            title: 'Amount'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Group Id'
+        },
+        payer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Payer Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        participants: {
+            items: {
+                '$ref': '#/components/schemas/ExpenseParticipantPublic'
+            },
+            type: 'array',
+            title: 'Participants'
+        }
+    },
+    type: 'object',
+    required: ['description', 'amount', 'id', 'group_id', 'payer_id', 'created_at', 'participants'],
+    title: 'ExpensePublic'
+} as const;
+
+export const ExpensesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ExpensePublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ExpensesPublic'
+} as const;
+
+export const GroupCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'GroupCreate'
+} as const;
+
+export const GroupDetailPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        current_user_balance: {
+            type: 'number',
+            title: 'Current User Balance'
+        },
+        members: {
+            items: {
+                '$ref': '#/components/schemas/GroupMemberPublic'
+            },
+            type: 'array',
+            title: 'Members'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id', 'created_at', 'current_user_balance', 'members'],
+    title: 'GroupDetailPublic'
+} as const;
+
+export const GroupMemberCreateSchema = {
+    properties: {
+        email: {
+            type: 'string',
+            format: 'email',
+            title: 'Email'
+        },
+        is_admin: {
+            type: 'boolean',
+            title: 'Is Admin',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['email'],
+    title: 'GroupMemberCreate'
+} as const;
+
+export const GroupMemberPublicSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        is_admin: {
+            type: 'boolean',
+            title: 'Is Admin'
+        },
+        balance: {
+            type: 'number',
+            title: 'Balance'
+        },
+        joined_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Joined At'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'email', 'is_admin', 'balance', 'joined_at'],
+    title: 'GroupMemberPublic'
+} as const;
+
+export const GroupPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        current_user_balance: {
+            type: 'number',
+            title: 'Current User Balance'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id', 'created_at', 'current_user_balance'],
+    title: 'GroupPublic'
+} as const;
+
+export const GroupUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    title: 'GroupUpdate'
+} as const;
+
+export const GroupsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/GroupPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'GroupsPublic'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -328,6 +690,105 @@ export const UserCreateSchema = {
     type: 'object',
     required: ['email', 'password'],
     title: 'UserCreate'
+} as const;
+
+export const UserExpensePublicSchema = {
+    properties: {
+        expense_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Expense Id'
+        },
+        group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Group Id'
+        },
+        group_name: {
+            type: 'string',
+            title: 'Group Name'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        amount: {
+            type: 'number',
+            title: 'Amount'
+        },
+        payer_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Payer Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        current_user_amount_owed: {
+            type: 'number',
+            title: 'Current User Amount Owed'
+        }
+    },
+    type: 'object',
+    required: ['expense_id', 'group_id', 'group_name', 'description', 'amount', 'payer_id', 'created_at', 'current_user_amount_owed'],
+    title: 'UserExpensePublic'
+} as const;
+
+export const UserExpensesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/UserExpensePublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'UserExpensesPublic'
+} as const;
+
+export const UserProfileInfoSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        display_name: {
+            type: 'string',
+            title: 'Display Name'
+        },
+        initial: {
+            type: 'string',
+            title: 'Initial'
+        }
+    },
+    type: 'object',
+    required: ['id', 'email', 'display_name', 'initial'],
+    title: 'UserProfileInfo'
 } as const;
 
 export const UserPublicSchema = {

@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link as RouterLink, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link as RouterLink,
+  useNavigate,
+} from "@tanstack/react-router"
 import {
   ArrowLeft,
   CircleDollarSign,
@@ -273,7 +277,9 @@ function GroupDetailPage() {
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate font-medium">{memberLabel(member)}</p>
+                    <p className="truncate font-medium">
+                      {memberLabel(member)}
+                    </p>
                     {member.is_admin ? (
                       <Badge variant="outline">Admin</Badge>
                     ) : null}
@@ -323,7 +329,8 @@ function GroupDetailPage() {
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium">
-                    {memberLabel(transfer.from)} paga a {memberLabel(transfer.to)}
+                    {memberLabel(transfer.from)} paga a{" "}
+                    {memberLabel(transfer.to)}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {formatCurrency(transfer.amount)}
@@ -419,9 +426,7 @@ function ExpenseRow({
       </div>
       <div className="text-left md:text-right">
         <p className="font-semibold">{formatCurrency(expense.amount)}</p>
-        <p className="text-sm text-muted-foreground">
-          Total del comprobante
-        </p>
+        <p className="text-sm text-muted-foreground">Total del comprobante</p>
       </div>
     </div>
   )

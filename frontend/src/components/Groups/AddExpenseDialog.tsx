@@ -264,8 +264,12 @@ export function AddExpenseDialog({
                 </div>
               ))}
               <div className="flex flex-col gap-1 border-t pt-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                <span>Total asignado: {currencyFormatter.format(customTotal)}</span>
-                <span>Diferencia: {currencyFormatter.format(customDifference)}</span>
+                <span>
+                  Total asignado: {currencyFormatter.format(customTotal)}
+                </span>
+                <span>
+                  Diferencia: {currencyFormatter.format(customDifference)}
+                </span>
               </div>
             </div>
           ) : null}

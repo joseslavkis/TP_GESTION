@@ -37,6 +37,8 @@ jobs:
         # To be able to commit it needs the head branch of the PR, the remote one
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+      - name: Prepare local environment
+        run: cp .env.example .env
       - uses: oven-sh/setup-bun@v2
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0

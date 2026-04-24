@@ -1,6 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link as RouterLink, useNavigate } from "@tanstack/react-router"
-import { ArrowRight, CircleDollarSign, Receipt, Users, Wallet } from "lucide-react"
+import {
+  createFileRoute,
+  Link as RouterLink,
+  useNavigate,
+} from "@tanstack/react-router"
+import {
+  ArrowRight,
+  CircleDollarSign,
+  Receipt,
+  Users,
+  Wallet,
+} from "lucide-react"
 
 import { GroupsService } from "@/client"
 import { AddGroupDialog } from "@/components/Groups/AddGroupDialog"
@@ -54,13 +64,11 @@ function Dashboard() {
     0,
   )
   const toReceive = groups.reduce(
-    (total, group) =>
-      total + Math.max(group.current_user_balance, 0),
+    (total, group) => total + Math.max(group.current_user_balance, 0),
     0,
   )
   const toPay = groups.reduce(
-    (total, group) =>
-      total + Math.abs(Math.min(group.current_user_balance, 0)),
+    (total, group) => total + Math.abs(Math.min(group.current_user_balance, 0)),
     0,
   )
 
@@ -193,7 +201,9 @@ function Dashboard() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">{formatCurrency(expense.amount)}</p>
+                  <p className="font-medium">
+                    {formatCurrency(expense.amount)}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Tu parte {formatCurrency(expense.current_user_amount_owed)}
                   </p>
