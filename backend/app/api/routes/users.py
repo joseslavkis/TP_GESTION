@@ -1,7 +1,6 @@
 import uuid
 from typing import Any
 
-from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import col, delete, func, select
 
@@ -19,12 +18,12 @@ from app.models import (
     UpdatePassword,
     User,
     UserCreate,
+    UserProfileInfo,
     UserPublic,
     UserRegister,
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
-    UserProfileInfo
 )
 from app.utils import generate_new_account_email, send_email
 

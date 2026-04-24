@@ -147,3 +147,55 @@ def test_list_current_user_group_expenses_returns_group_debt(
     group_expenses = group_expenses_response.json()
     assert group_expenses["count"] >= 1
     assert group_expenses["data"][0]["group_id"] == group["id"]
+
+
+def test_group_detail_member_management_update_and_delete(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group_response = client.post(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+        json={"name": "Cena", "description": "Salida grupal"},
+    )
+    assert group_response.status_code == 200
+    group = group_response.json()
+
+    second_user = create_random_user(db)
+    add_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert add_member_response.status_code == 200
+    added_member = add_member_response.json()
+    assert added_member["email"] == second_user.email
+    assert added_member["balance"] == 0.0
+
+    detail_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}",
+        headers=normal_user_token_headers,
+    )
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["name"] == "Cena"
+    assert len(detail["members"]) == 2
+
+    update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}",
+        headers=normal_user_token_headers,
+        json={"name": "Cena actualizada", "description": "Nueva descripcion"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "Cena actualizada"
+
+    remove_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{second_user.id}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_member_response.status_code == 200
+
+    delete_group_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}",
+        headers=normal_user_token_headers,
+    )
+    assert delete_group_response.status_code == 200

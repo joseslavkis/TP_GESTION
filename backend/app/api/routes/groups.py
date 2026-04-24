@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import col, func, select
+from sqlmodel import Session, col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -14,9 +14,15 @@ from app.models import (
     ExpensesPublic,
     Group,
     GroupCreate,
+    GroupDetailPublic,
     GroupMember,
+    GroupMemberCreate,
+    GroupMemberPublic,
     GroupPublic,
     GroupsPublic,
+    GroupUpdate,
+    Message,
+    User,
     UserExpensePublic,
     UserExpensesPublic,
 )
@@ -40,6 +46,74 @@ def _build_expense_public(
                 amount_owed=participant.amount_owed,
             )
             for participant in participants
+        ],
+    )
+
+
+def _build_group_member_public(member: GroupMember, user: User) -> GroupMemberPublic:
+    return GroupMemberPublic(
+        user_id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_admin=member.is_admin,
+        balance=member.balance,
+        joined_at=member.joined_at,
+    )
+
+
+def _get_membership(
+    session: Session, group_id: uuid.UUID, user_id: uuid.UUID
+) -> GroupMember | None:
+    return session.exec(
+        select(GroupMember).where(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == user_id,
+        )
+    ).first()
+
+
+def _require_membership(
+    session: Session, group_id: uuid.UUID, current_user: User
+) -> GroupMember:
+    membership = _get_membership(session, group_id, current_user.id)
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of this group",
+        )
+    return membership
+
+
+def _require_group_admin(
+    session: Session, group_id: uuid.UUID, current_user: User
+) -> GroupMember:
+    membership = _require_membership(session, group_id, current_user)
+    if not membership.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only group admins can perform this action",
+        )
+    return membership
+
+
+def _build_group_detail(
+    session: Session, group: Group, balance: float
+) -> GroupDetailPublic:
+    member_rows = session.exec(
+        select(GroupMember, User)
+        .join(User, User.id == GroupMember.user_id)
+        .where(GroupMember.group_id == group.id)
+        .order_by(col(GroupMember.joined_at))
+    ).all()
+
+    return GroupDetailPublic(
+        id=group.id,
+        name=group.name,
+        description=group.description,
+        created_at=group.created_at,
+        current_user_balance=balance,
+        members=[
+            _build_group_member_public(member, user) for member, user in member_rows
         ],
     )
 
@@ -108,6 +182,159 @@ def create_group(
         created_at=group.created_at,
         current_user_balance=0.0,
     )
+
+
+@router.get("/{group_id}", response_model=GroupDetailPublic)
+def read_group(
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+) -> Any:
+    """
+    Obtener detalle de un grupo y sus integrantes.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+    membership = _require_membership(session, group_id, current_user)
+    return _build_group_detail(session, group, membership.balance)
+
+
+@router.patch("/{group_id}", response_model=GroupDetailPublic)
+def update_group(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+    group_in: GroupUpdate,
+) -> Any:
+    """
+    Editar configuracion basica de un grupo.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+    membership = _require_group_admin(session, group_id, current_user)
+    update_data = group_in.model_dump(exclude_unset=True)
+    group.sqlmodel_update(update_data)
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+    return _build_group_detail(session, group, membership.balance)
+
+
+@router.delete("/{group_id}", response_model=Message)
+def delete_group(
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+) -> Message:
+    """
+    Eliminar un grupo.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+    _require_group_admin(session, group_id, current_user)
+    session.delete(group)
+    session.commit()
+    return Message(message="Group deleted successfully")
+
+
+@router.post("/{group_id}/members", response_model=GroupMemberPublic)
+def add_group_member(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+    member_in: GroupMemberCreate,
+) -> Any:
+    """
+    Anadir participante a un grupo por email.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+    _require_group_admin(session, group_id, current_user)
+
+    user = session.exec(select(User).where(User.email == member_in.email)).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    existing_membership = _get_membership(session, group_id, user.id)
+    if existing_membership:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User is already a member of this group",
+        )
+
+    member = GroupMember(
+        user_id=user.id,
+        group_id=group_id,
+        is_admin=member_in.is_admin,
+        balance=0.0,
+    )
+    session.add(member)
+    session.commit()
+    session.refresh(member)
+    return _build_group_member_public(member, user)
+
+
+@router.delete("/{group_id}/members/{user_id}", response_model=Message)
+def remove_group_member(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Message:
+    """
+    Quitar participante de un grupo.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+    _require_group_admin(session, group_id, current_user)
+    member = _get_membership(session, group_id, user_id)
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group member not found"
+        )
+
+    if abs(member.balance) > 0.01:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove a member with a non-zero balance",
+        )
+
+    if member.is_admin:
+        admins_count = session.exec(
+            select(func.count()).select_from(GroupMember).where(
+                GroupMember.group_id == group_id,
+                GroupMember.is_admin == True,  # noqa: E712
+            )
+        ).one()
+        if admins_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A group must keep at least one admin",
+            )
+
+    session.delete(member)
+    session.commit()
+    return Message(message="Group member removed successfully")
 
 
 @router.get("/me/expenses", response_model=UserExpensesPublic)

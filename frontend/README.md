@@ -1,17 +1,17 @@
 # Frontend
 
-El frontend esta hecho con React, TypeScript y Vite. Ya fue limpiado del branding mas visible del template y ahora se presenta como base para el TP de Gastos Grupales.
+El frontend esta hecho con React, TypeScript y Vite. Ya fue orientado al TP de Gastos Grupales y consume los endpoints del backend para grupos, integrantes, gastos y saldos.
 
 ## Objetivo
 
-Servir como interfaz inicial para evolucionar hacia:
+Servir como interfaz funcional para:
 
 - listado de grupos
 - detalle de grupo
 - alta de gastos
 - reparto entre integrantes
 - resumen de deudas y saldos
-- cierre de grupos
+- liquidacion sugerida
 
 ## Desarrollo local
 
@@ -19,6 +19,12 @@ Servir como interfaz inicial para evolucionar hacia:
 cd frontend
 bun install
 bun run dev
+```
+
+El archivo `frontend/.env` debe apuntar al backend local:
+
+```text
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
 ## Build
@@ -30,4 +36,11 @@ bun run build
 
 ## Estado actual
 
-Todavia hay componentes y rutas heredadas como `items`, `admin` y `settings`. La idea es reutilizar la estructura y luego renombrar o reemplazar esas pantallas conforme avances con el TP.
+Pantallas principales implementadas:
+
+- Home con resumen de saldos, grupos y gastos recientes.
+- Listado de grupos con busqueda.
+- Detalle de grupo con integrantes, gastos, filtros y liquidacion sugerida.
+- Dialogos para crear grupo, editar grupo, agregar participante y registrar gasto.
+
+Todavia hay componentes y rutas heredadas como `items`, `admin` y `settings`. La idea es removerlas o reemplazarlas si no forman parte del alcance final del TP.

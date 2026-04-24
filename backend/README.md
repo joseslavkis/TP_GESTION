@@ -1,17 +1,19 @@
 # Backend
 
-El backend actual esta montado con FastAPI, SQLModel y PostgreSQL. Por ahora conserva bastante estructura del template original, pero queda como base para modelar el dominio de Gastos Grupales.
+El backend actual esta montado con FastAPI, SQLModel y PostgreSQL. Conserva piezas utiles del template original, pero ya incluye el dominio principal de Gastos Grupales.
 
-## Rol esperado en el TP
+## Rol en el TP
 
-Este modulo deberia terminar concentrando:
+Este modulo concentra:
 
 - grupos
 - integrantes
 - gastos
 - participaciones por gasto
-- balances y cierres
-- soporte de moneda
+- balances por integrante
+- propuesta de liquidacion
+
+Todavia no incluye cierre formal de grupos, recordatorios ni soporte real de multiples monedas.
 
 ## Desarrollo local
 
@@ -19,7 +21,7 @@ Este modulo deberia terminar concentrando:
 cd backend
 uv sync
 source ../.venv/bin/activate
-fastapi run app/main.py --reload --port 8000
+fastapi dev app/main.py
 ```
 
 ## Deploy
@@ -41,9 +43,11 @@ configuracion tradicional basada en:
 
 ```bash
 cd backend
-bash ./scripts/test.sh
+../.venv/bin/pytest tests/api/routes/test_groups.py
+../.venv/bin/ruff check app tests
+../.venv/bin/ty check tests/api/routes/test_groups.py
 ```
 
 ## Nota importante
 
-Todavia existen modelos, rutas y tests heredados del template como `users` e `items`. No estan mal para arrancar, pero conviene tomarlos como estructura transitoria y no como modelo final del dominio.
+Todavia existen modelos, rutas y tests heredados del template como `users` e `items`. `users` sigue siendo parte del flujo de autenticacion; `items` queda como estructura transitoria y no forma parte del flujo principal de Gastos Grupales.

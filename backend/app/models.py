@@ -150,14 +150,33 @@ class Group(GroupBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     members: list["User"] = Relationship(back_populates="groups", link_model=GroupMember)
     expenses: list["Expense"] = Relationship(back_populates="group", cascade_delete=True)
-    
+
 class GroupCreate(GroupBase):
     pass
+
+class GroupUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+
+class GroupMemberCreate(BaseModel):
+    email: EmailStr
+    is_admin: bool = False
+
+class GroupMemberPublic(BaseModel):
+    user_id: uuid.UUID
+    email: str
+    full_name: str | None = None
+    is_admin: bool
+    balance: float
+    joined_at: datetime
 
 class GroupPublic(GroupBase):
     id: uuid.UUID
     created_at: datetime
     current_user_balance: float = 0.0
+
+class GroupDetailPublic(GroupPublic):
+    members: list[GroupMemberPublic]
 
 
 class GroupsPublic(SQLModel):
