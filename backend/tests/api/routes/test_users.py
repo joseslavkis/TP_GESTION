@@ -8,7 +8,7 @@ from app import crud
 from app.core.config import settings
 from app.core.security import verify_password
 from app.models import User, UserCreate
-from tests.utils.user import create_random_user
+from tests.utils.user import create_random_user, user_authentication_headers
 from tests.utils.utils import random_email, random_lower_string
 
 
@@ -32,6 +32,52 @@ def test_get_users_normal_user_me(
     assert current_user["is_active"] is True
     assert current_user["is_superuser"] is False
     assert current_user["email"] == settings.EMAIL_TEST_USER
+
+
+def test_get_user_profile_uses_full_name(client: TestClient, db: Session) -> None:
+    username = random_email()
+    password = random_lower_string()
+    user_in = UserCreate(
+        email=username,
+        password=password,
+        full_name="Ada Lovelace",
+    )
+    user = crud.create_user(session=db, user_create=user_in)
+    headers = user_authentication_headers(
+        client=client,
+        email=username,
+        password=password,
+    )
+
+    r = client.get(f"{settings.API_V1_STR}/users/me/profile", headers=headers)
+    assert r.status_code == 200
+    profile = r.json()
+    assert profile["id"] == str(user.id)
+    assert profile["email"] == username
+    assert profile["full_name"] == "Ada Lovelace"
+    assert profile["display_name"] == "Ada Lovelace"
+    assert profile["initial"] == "A"
+
+
+def test_get_user_profile_falls_back_to_email(client: TestClient, db: Session) -> None:
+    username = random_email()
+    password = random_lower_string()
+    user_in = UserCreate(email=username, password=password)
+    crud.create_user(session=db, user_create=user_in)
+    headers = user_authentication_headers(
+        client=client,
+        email=username,
+        password=password,
+    )
+
+    r = client.get(f"{settings.API_V1_STR}/users/me/profile", headers=headers)
+    assert r.status_code == 200
+    profile = r.json()
+    email_name = username.split("@")[0]
+    assert profile["email"] == username
+    assert profile["full_name"] is None
+    assert profile["display_name"] == email_name
+    assert profile["initial"] == email_name[0].upper()
 
 
 def test_create_user_new_email(
@@ -444,7 +490,7 @@ def test_delete_user_me(client: TestClient, db: Session) -> None:
     assert result is None
 
     user_query = select(User).where(User.id == user_id)
-    user_db = db.execute(user_query).first()
+    user_db = db.exec(user_query).first()
     assert user_db is None
 
 

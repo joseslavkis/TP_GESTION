@@ -1,4 +1,5 @@
 import uuid
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -8,34 +9,50 @@ from app.models import GroupMember
 from tests.utils.user import authentication_token_from_email, create_random_user
 
 
-def test_create_group_expense_is_split_across_all_group_members(
-    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
-) -> None:
-    group_response = client.post(
+def _create_group(
+    client: TestClient,
+    headers: dict[str, str],
+    name: str = "Viaje",
+    description: str = "Gastos compartidos",
+) -> dict[str, Any]:
+    response = client.post(
         f"{settings.API_V1_STR}/groups/",
-        headers=normal_user_token_headers,
-        json={"name": "Viaje", "description": "Gastos compartidos"},
+        headers=headers,
+        json={"name": name, "description": description},
     )
-    assert group_response.status_code == 200
-    group = group_response.json()
-    group_id = uuid.UUID(group["id"])
+    assert response.status_code == 200
+    return cast(dict[str, Any], response.json())
 
-    current_user_response = client.get(
-        f"{settings.API_V1_STR}/users/me",
-        headers=normal_user_token_headers,
-    )
-    current_user = current_user_response.json()
 
-    second_user = create_random_user(db)
+def _get_current_user(client: TestClient, headers: dict[str, str]) -> dict[str, Any]:
+    response = client.get(f"{settings.API_V1_STR}/users/me", headers=headers)
+    assert response.status_code == 200
+    return cast(dict[str, Any], response.json())
+
+
+def _add_member_directly(db: Session, group_id: uuid.UUID) -> tuple[str, uuid.UUID]:
+    user = create_random_user(db)
     db.add(
         GroupMember(
-            user_id=second_user.id,
+            user_id=user.id,
             group_id=group_id,
             is_admin=False,
             balance=0.0,
         )
     )
     db.commit()
+    return user.email, user.id
+
+
+def test_create_group_expense_is_split_across_all_group_members(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+
+    current_user = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, _ = _add_member_directly(db, group_id)
 
     expense_response = client.post(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
@@ -53,7 +70,9 @@ def test_create_group_expense_is_split_across_all_group_members(
     assert expense["group_id"] == group["id"]
     assert expense["payer_id"] == current_user["id"]
     assert len(expense["participants"]) == 2
-    assert sorted(participant["amount_owed"] for participant in expense["participants"]) == [
+    assert sorted(
+        participant["amount_owed"] for participant in expense["participants"]
+    ) == [
         50.0,
         50.0,
     ]
@@ -63,52 +82,43 @@ def test_create_group_expense_is_split_across_all_group_members(
         headers=normal_user_token_headers,
     )
     assert payer_groups_response.status_code == 200
-    payer_group = payer_groups_response.json()["data"][0]
+    payer_group = next(
+        item
+        for item in payer_groups_response.json()["data"]
+        if item["id"] == group["id"]
+    )
     assert payer_group["current_user_balance"] == 50.0
 
     second_user_headers = authentication_token_from_email(
-        client=client, email=second_user.email, db=db
+        client=client, email=second_user_email, db=db
     )
     second_user_groups_response = client.get(
         f"{settings.API_V1_STR}/groups/",
         headers=second_user_headers,
     )
     assert second_user_groups_response.status_code == 200
-    second_user_group = second_user_groups_response.json()["data"][0]
+    second_user_group = next(
+        item
+        for item in second_user_groups_response.json()["data"]
+        if item["id"] == group["id"]
+    )
     assert second_user_group["current_user_balance"] == -50.0
 
 
 def test_list_current_user_group_expenses_returns_group_debt(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
-    group_response = client.post(
-        f"{settings.API_V1_STR}/groups/",
-        headers=normal_user_token_headers,
-        json={"name": "Casa", "description": "Servicios"},
+    group = _create_group(
+        client, normal_user_token_headers, name="Casa", description="Servicios"
     )
-    assert group_response.status_code == 200
-    group = group_response.json()
     group_id = uuid.UUID(group["id"])
 
-    owner_response = client.get(
-        f"{settings.API_V1_STR}/users/me",
-        headers=normal_user_token_headers,
-    )
-    owner = owner_response.json()
+    owner = _get_current_user(client, normal_user_token_headers)
 
-    second_user = create_random_user(db)
-    db.add(
-        GroupMember(
-            user_id=second_user.id,
-            group_id=group_id,
-            is_admin=False,
-            balance=0.0,
-        )
-    )
-    db.commit()
+    second_user_email, _ = _add_member_directly(db, group_id)
 
     second_user_headers = authentication_token_from_email(
-        client=client, email=second_user.email, db=db
+        client=client, email=second_user_email, db=db
     )
 
     expense_response = client.post(
@@ -152,13 +162,12 @@ def test_list_current_user_group_expenses_returns_group_debt(
 def test_group_detail_member_management_update_and_delete(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
-    group_response = client.post(
-        f"{settings.API_V1_STR}/groups/",
-        headers=normal_user_token_headers,
-        json={"name": "Cena", "description": "Salida grupal"},
+    group = _create_group(
+        client,
+        normal_user_token_headers,
+        name="Cena",
+        description="Salida grupal",
     )
-    assert group_response.status_code == 200
-    group = group_response.json()
 
     second_user = create_random_user(db)
     add_member_response = client.post(
@@ -199,3 +208,322 @@ def test_group_detail_member_management_update_and_delete(
         headers=normal_user_token_headers,
     )
     assert delete_group_response.status_code == 200
+
+
+def test_group_access_requires_existing_group_and_membership(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    outsider = create_random_user(db)
+    outsider_headers = authentication_token_from_email(
+        client=client, email=outsider.email, db=db
+    )
+
+    missing_group_response = client.get(
+        f"{settings.API_V1_STR}/groups/{uuid.uuid4()}",
+        headers=normal_user_token_headers,
+    )
+    assert missing_group_response.status_code == 404
+    assert missing_group_response.json()["detail"] == "Group not found"
+
+    outsider_group_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}",
+        headers=outsider_headers,
+    )
+    assert outsider_group_response.status_code == 403
+    assert (
+        outsider_group_response.json()["detail"] == "User is not a member of this group"
+    )
+
+    outsider_expenses_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=outsider_headers,
+    )
+    assert outsider_expenses_response.status_code == 403
+
+
+def test_group_admin_actions_require_admin_and_validate_members(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    second_user = create_random_user(db)
+
+    add_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert add_member_response.status_code == 200
+
+    duplicate_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert duplicate_member_response.status_code == 409
+    assert (
+        duplicate_member_response.json()["detail"]
+        == "User is already a member of this group"
+    )
+
+    missing_user_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": "missing-user@example.com", "is_admin": False},
+    )
+    assert missing_user_response.status_code == 404
+    assert missing_user_response.json()["detail"] == "User not found"
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
+    )
+    update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}",
+        headers=second_user_headers,
+        json={"name": "Intento sin permisos"},
+    )
+    assert update_response.status_code == 403
+    assert (
+        update_response.json()["detail"] == "Only group admins can perform this action"
+    )
+
+    add_by_non_admin_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=second_user_headers,
+        json={"email": create_random_user(db).email, "is_admin": False},
+    )
+    assert add_by_non_admin_response.status_code == 403
+
+
+def test_group_member_removal_validates_balance_admins_and_missing_member(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    current_user = _get_current_user(client, normal_user_token_headers)
+
+    remove_last_admin_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{current_user['id']}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_last_admin_response.status_code == 400
+    assert remove_last_admin_response.json()["detail"] == (
+        "A group must keep at least one admin"
+    )
+
+    missing_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{uuid.uuid4()}",
+        headers=normal_user_token_headers,
+    )
+    assert missing_member_response.status_code == 404
+    assert missing_member_response.json()["detail"] == "Group member not found"
+
+    _, indebted_user_id = _add_member_directly(db, group_id)
+    member = db.get(GroupMember, (indebted_user_id, group_id))
+    assert member
+    member.balance = -10.0
+    db.add(member)
+    db.commit()
+
+    remove_indebted_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{indebted_user_id}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_indebted_member_response.status_code == 400
+    assert remove_indebted_member_response.json()["detail"] == (
+        "Cannot remove a member with a non-zero balance"
+    )
+
+
+def test_create_custom_expense_updates_balances(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    payer = _get_current_user(client, normal_user_token_headers)
+    second_user_email, second_user_id = _add_member_directly(db, group_id)
+
+    expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Entradas",
+            "amount": 100,
+            "payer_id": payer["id"],
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": payer["id"], "amount": 30},
+                {"user_id": str(second_user_id), "amount": 70},
+            ],
+        },
+    )
+    assert expense_response.status_code == 200
+    expense = expense_response.json()
+    assert sorted(
+        participant["amount_owed"] for participant in expense["participants"]
+    ) == [30.0, 70.0]
+
+    payer_groups_response = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+    )
+    assert payer_groups_response.status_code == 200
+    payer_group = next(
+        item
+        for item in payer_groups_response.json()["data"]
+        if item["id"] == group["id"]
+    )
+    assert payer_group["current_user_balance"] == 70.0
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+    second_user_groups_response = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=second_user_headers,
+    )
+    assert second_user_groups_response.status_code == 200
+    second_user_group = next(
+        item
+        for item in second_user_groups_response.json()["data"]
+        if item["id"] == group["id"]
+    )
+    assert second_user_group["current_user_balance"] == -70.0
+
+
+def test_create_expense_rejects_invalid_members_and_custom_participants(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    payer = _get_current_user(client, normal_user_token_headers)
+    second_user_email, second_user_id = _add_member_directly(db, group_id)
+    outsider = create_random_user(db)
+    outsider_headers = authentication_token_from_email(
+        client=client, email=outsider.email, db=db
+    )
+
+    non_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=outsider_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": payer["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert non_member_response.status_code == 403
+
+    payer_not_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": str(outsider.id),
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert payer_not_member_response.status_code == 400
+    assert payer_not_member_response.json()["detail"] == (
+        "Payer is not a member of this group"
+    )
+
+    missing_participants_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": payer["id"],
+            "division_mode": "custom",
+            "participants": [],
+        },
+    )
+    assert missing_participants_response.status_code == 400
+    assert missing_participants_response.json()["detail"] == (
+        "Custom division requires participants"
+    )
+
+    duplicate_participants_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": payer["id"],
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": str(second_user_id), "amount": 10},
+                {"user_id": str(second_user_id), "amount": 10},
+            ],
+        },
+    )
+    assert duplicate_participants_response.status_code == 400
+    assert duplicate_participants_response.json()["detail"] == (
+        "Participants must be unique"
+    )
+
+    participant_not_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": payer["id"],
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": payer["id"], "amount": 10},
+                {"user_id": str(outsider.id), "amount": 10},
+            ],
+        },
+    )
+    assert participant_not_member_response.status_code == 400
+    assert participant_not_member_response.json()["detail"] == (
+        "One or more participants are not members of this group"
+    )
+
+    missing_amount_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": payer["id"],
+            "division_mode": "custom",
+            "participants": [{"user_id": str(second_user_id)}],
+        },
+    )
+    assert missing_amount_response.status_code == 400
+    assert "must be a positive number" in missing_amount_response.json()["detail"]
+
+    sum_mismatch_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Taxi",
+            "amount": 20,
+            "payer_id": payer["id"],
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": payer["id"], "amount": 5},
+                {"user_id": str(second_user_id), "amount": 5},
+            ],
+        },
+    )
+    assert sum_mismatch_response.status_code == 400
+    assert sum_mismatch_response.json()["detail"] == (
+        "Sum of custom amounts does not match the total expense amount"
+    )
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+    second_user_group_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}",
+        headers=second_user_headers,
+    )
+    assert second_user_group_response.status_code == 200
