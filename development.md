@@ -2,13 +2,19 @@
 
 ## Objetivo
 
-Esta base se esta usando para el TP de "Gastos Grupales". El objetivo del desarrollo local es iterar rapido sobre la estructura heredada del template sin perder tiempo en configuraciones innecesarias.
+Esta base se esta usando para el TP de "Gastos Grupales". El objetivo del desarrollo local es iterar rapido sobre el flujo de grupos, integrantes, gastos, saldos y liquidaciones sin perder tiempo en configuraciones innecesarias.
 
 ## Requisitos
 
 - Docker y Docker Compose
 - `uv` para el backend
 - `bun` para el frontend
+
+Antes de levantar servicios por primera vez, crear el archivo de entorno local:
+
+```bash
+cp .env.example .env
+```
 
 ## Levantar todo con Docker
 
@@ -40,7 +46,7 @@ Eso deja alineados estos dos escenarios:
   por `5432`
 
 Si en tu maquina `5433` tambien esta ocupado, cambia `POSTGRES_PORT` en
-[`/.env`](/home/jos-slavkis/Projects/TP_GESTION/.env) por otro puerto libre.
+`.env` por otro puerto libre.
 
 ## Backend local
 
@@ -48,7 +54,7 @@ Si en tu maquina `5433` tambien esta ocupado, cambia `POSTGRES_PORT` en
 cd backend
 uv sync
 source ../.venv/bin/activate
-fastapi run app/main.py --reload --port 8000
+fastapi dev app/main.py
 ```
 
 ## Frontend local
@@ -68,6 +74,8 @@ bun run dev
 bun run lint
 bun run test
 ```
+
+Estos comandos de la raiz delegan en el workspace del frontend. Para backend, usar los comandos de la seccion siguiente.
 
 Backend:
 
@@ -142,9 +150,10 @@ bash scripts/prestart.sh
 
 ## Criterio para este TP
 
-Mientras el dominio definitivo no este implementado, conviene usar esta base como plataforma tecnica:
+El dominio principal ya esta implementado en una primera version funcional. Para seguir evolucionando el TP:
 
-- reutilizar autenticacion solo si aporta
-- transformar `items` en gastos
-- transformar la parte administrativa en gestion de integrantes y grupos
+- mantener autenticacion como base de usuarios
+- priorizar mejoras sobre grupos, integrantes, gastos, saldos y liquidaciones
+- tratar `items`, `admin` y otras pantallas heredadas como estructura transitoria
 - reemplazar branding y textos demo cada vez que aparezcan
+- actualizar tests y documentacion cuando cambie el comportamiento

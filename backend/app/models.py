@@ -47,11 +47,16 @@ class UpdatePassword(SQLModel):
 
 
 class GroupMember(SQLModel, table=True):
-    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
-    group_id: uuid.UUID = Field(foreign_key="group.id", ondelete="CASCADE", primary_key=True)
-    is_admin: bool = Field(default=False)
-    balance: float = Field(default=0.0, ge=-1_000_000, le=1_000_000)
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", ondelete="CASCADE", primary_key=True
+    )
+    group_id: uuid.UUID = Field(
+        foreign_key="group.id", ondelete="CASCADE", primary_key=True
+    )
+    is_admin: bool = Field(default=False)  # CA 1: Identifica si es administrador
+    balance: float = Field(default=0.0)  # CA 3: Saldos iniciales en cero
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
@@ -62,13 +67,16 @@ class User(UserBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
-    groups: list["Group"] = Relationship(back_populates="members", link_model=GroupMember)
+    groups: list["Group"] = Relationship(
+        back_populates="members", link_model=GroupMember
+    )
 
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
+
 
 class UserProfileInfo(BaseModel):
     id: uuid.UUID
@@ -145,36 +153,73 @@ class GroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
 
+
 class Group(GroupBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    members: list["User"] = Relationship(back_populates="groups", link_model=GroupMember)
-    expenses: list["Expense"] = Relationship(back_populates="group", cascade_delete=True)
-    
+    members: list["User"] = Relationship(
+        back_populates="groups", link_model=GroupMember
+    )
+    expenses: list["Expense"] = Relationship(
+        back_populates="group", cascade_delete=True
+    )
+
+
 class GroupCreate(GroupBase):
     pass
+
+
+class GroupUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+
+
+class GroupMemberCreate(BaseModel):
+    email: EmailStr
+    is_admin: bool = False
+
+
+class GroupMemberPublic(BaseModel):
+    user_id: uuid.UUID
+    email: str
+    full_name: str | None = None
+    is_admin: bool
+    balance: float
+    joined_at: datetime
+
 
 class GroupPublic(GroupBase):
     id: uuid.UUID
     created_at: datetime
-    current_user_balance: float = 0.0
+    current_user_balance: float
+
+
+class GroupDetailPublic(GroupPublic):
+    members: list[GroupMemberPublic]
 
 
 class GroupsPublic(SQLModel):
     data: list[GroupPublic]
     count: int
 
+
 class ExpenseParticipant(SQLModel, table=True):
-    expense_id: uuid.UUID = Field(foreign_key="expense.id", ondelete="CASCADE", primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
+    expense_id: uuid.UUID = Field(
+        foreign_key="expense.id", ondelete="CASCADE", primary_key=True
+    )
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", ondelete="CASCADE", primary_key=True
+    )
     amount_owed: float
 
     expense: "Expense" = Relationship(back_populates="participants")
     user: "User" = Relationship()
 
+
 class ExpenseBase(SQLModel):
     description: str = Field(min_length=1, max_length=255)
-    amount: float = Field(gt=0, le=1_000_000)
+    amount: float = Field(gt=0)
+
 
 class Expense(ExpenseBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -183,11 +228,15 @@ class Expense(ExpenseBase, table=True):
     group: "Group" = Relationship(back_populates="expenses")
     payer_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE")
     payer: "User" = Relationship()
-    participants: list[ExpenseParticipant] = Relationship(back_populates="expense", cascade_delete=True)
+    participants: list[ExpenseParticipant] = Relationship(
+        back_populates="expense", cascade_delete=True
+    )
+
 
 class ExpenseParticipantIn(BaseModel):
     user_id: uuid.UUID
     amount: float | None = Field(default=None, gt=0)
+
 
 class ExpenseCreate(BaseModel):
     description: str = Field(min_length=1, max_length=255)
@@ -196,9 +245,11 @@ class ExpenseCreate(BaseModel):
     participants: list[ExpenseParticipantIn] = Field(default_factory=list)
     division_mode: Literal["equitable", "custom"]
 
+
 class ExpenseParticipantPublic(BaseModel):
     user_id: uuid.UUID
     amount_owed: float
+
 
 class ExpensePublic(ExpenseBase):
     id: uuid.UUID

@@ -27,8 +27,16 @@ OpenAPI.TOKEN = async () => {
   return localStorage.getItem("access_token") || ""
 }
 
+const isAuthSessionError = (error: ApiError) => {
+  const isUnauthorized = [401, 403].includes(error.status)
+  const isMissingCurrentUser =
+    error.status === 404 && error.url.endsWith("/api/v1/users/me")
+
+  return isUnauthorized || isMissingCurrentUser
+}
+
 const handleApiError = (error: Error) => {
-  if (error instanceof ApiError && [401, 403].includes(error.status)) {
+  if (error instanceof ApiError && isAuthSessionError(error)) {
     localStorage.removeItem("access_token")
     window.location.href = "/login"
   }

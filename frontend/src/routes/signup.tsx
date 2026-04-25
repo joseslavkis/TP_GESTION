@@ -1,5 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { createFileRoute, Link as RouterLink, redirect, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link as RouterLink,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -17,9 +22,7 @@ const formSchema = z
       .string()
       .min(1, { message: "La contrasena es obligatoria" })
       .min(8, { message: "La contrasena debe tener al menos 8 caracteres" }),
-    confirm_password: z
-      .string()
-      .min(1, { message: "Confirma tu contrasena" }),
+    confirm_password: z.string().min(1, { message: "Confirma tu contrasena" }),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Las contrasenas no coinciden",
@@ -96,7 +99,8 @@ function SignUp() {
             Sumate y empeza a organizar gastos
           </h1>
           <p className="max-w-[22rem] text-base leading-relaxed font-medium text-muted-foreground">
-            Crea tu cuenta para registrar gastos compartidos y guardar todo en la base del proyecto.
+            Crea tu cuenta para registrar gastos compartidos y guardar todo en
+            la base del proyecto.
           </p>
         </div>
 

@@ -12,7 +12,9 @@ test("Items page is accessible and shows correct title", async ({ page }) => {
   await page.goto("/items")
   await expect(page.getByRole("heading", { name: "Gastos" })).toBeVisible()
   await expect(
-    page.getByText("Base inicial para registrar y administrar gastos compartidos"),
+    page.getByText(
+      "Base inicial para registrar y administrar gastos compartidos",
+    ),
   ).toBeVisible()
 })
 

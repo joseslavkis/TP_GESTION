@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import items, login, private, users, utils, groups
+from app.api.routes import groups, items, login, private, users, utils
 from app.core.config import settings
 
 api_router = APIRouter()

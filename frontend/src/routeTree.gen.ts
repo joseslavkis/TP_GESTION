@@ -17,7 +17,9 @@ import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutGroupsRouteImport } from './routes/_layout/groups'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutGroupsGroupIdRouteImport } from './routes/_layout/groups.$groupId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -58,10 +60,20 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutGroupsRoute = LayoutGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutGroupsGroupIdRoute = LayoutGroupsGroupIdRouteImport.update({
+  id: '/$groupId',
+  path: '/$groupId',
+  getParentRoute: () => LayoutGroupsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -71,8 +83,10 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/groups': typeof LayoutGroupsRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/groups/$groupId': typeof LayoutGroupsGroupIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -80,9 +94,11 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/groups': typeof LayoutGroupsRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
+  '/groups/$groupId': typeof LayoutGroupsGroupIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +108,11 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/groups': typeof LayoutGroupsRouteWithChildren
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/groups/$groupId': typeof LayoutGroupsGroupIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +123,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/groups'
     | '/items'
     | '/settings'
+    | '/groups/$groupId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -114,9 +134,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/groups'
     | '/items'
     | '/settings'
     | '/'
+    | '/groups/$groupId'
   id:
     | '__root__'
     | '/_layout'
@@ -125,9 +147,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/groups'
     | '/_layout/items'
     | '/_layout/settings'
     | '/_layout/'
+    | '/_layout/groups/$groupId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -196,6 +220,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/groups': {
+      id: '/_layout/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof LayoutGroupsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -203,11 +234,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/groups/$groupId': {
+      id: '/_layout/groups/$groupId'
+      path: '/$groupId'
+      fullPath: '/groups/$groupId'
+      preLoaderRoute: typeof LayoutGroupsGroupIdRouteImport
+      parentRoute: typeof LayoutGroupsRoute
+    }
   }
 }
 
+interface LayoutGroupsRouteChildren {
+  LayoutGroupsGroupIdRoute: typeof LayoutGroupsGroupIdRoute
+}
+
+const LayoutGroupsRouteChildren: LayoutGroupsRouteChildren = {
+  LayoutGroupsGroupIdRoute: LayoutGroupsGroupIdRoute,
+}
+
+const LayoutGroupsRouteWithChildren = LayoutGroupsRoute._addFileChildren(
+  LayoutGroupsRouteChildren,
+)
+
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutGroupsRoute: typeof LayoutGroupsRouteWithChildren
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -215,6 +266,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutGroupsRoute: LayoutGroupsRouteWithChildren,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,

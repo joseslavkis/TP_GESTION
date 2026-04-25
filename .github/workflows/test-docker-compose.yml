@@ -16,30 +16,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Set up CI environment file
-        run: bash scripts/setup-ci-env.sh
-      - name: Validate Compose config
-        run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml config
-      - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml build
-      - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml down -v --remove-orphans
-      - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml up -d --wait backend frontend adminer
-      - name: Debug Compose failure
-        if: failure()
-        run: |
-          mkdir -p compose-debug
-          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml ps -a
-          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml ps -a > compose-debug/ps.txt
-          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color frontend > compose-debug/frontend.log
-          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color backend prestart db adminer > compose-debug/services.log
-          docker inspect tp_gestion-frontend-1 > compose-debug/frontend-inspect.json || true
-          docker compose --env-file .env.ci -f compose.yml -f compose.override.yml logs --no-color frontend
-      - name: Upload Compose debug logs
-        if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: compose-debug
-          path: compose-debug
-          include-hidden-files: true
+      - name: Prepare local environment
+        run: cp .env.example .env
+      - run: docker compose build
+      - run: docker compose down -v --remove-orphans
+      - run: docker compose up -d --wait backend frontend adminer
       - name: Test backend is up
         run: curl http://localhost:8000/api/v1/utils/health-check
       - name: Test frontend is up

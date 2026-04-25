@@ -3,7 +3,239 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { GroupsListUserGroupsData, GroupsListUserGroupsResponse, GroupsCreateGroupData, GroupsCreateGroupResponse, GroupsReadGroupData, GroupsReadGroupResponse, GroupsUpdateGroupData, GroupsUpdateGroupResponse, GroupsDeleteGroupData, GroupsDeleteGroupResponse, GroupsAddGroupMemberData, GroupsAddGroupMemberResponse, GroupsRemoveGroupMemberData, GroupsRemoveGroupMemberResponse, GroupsListCurrentUserGroupExpensesData, GroupsListCurrentUserGroupExpensesResponse, GroupsListGroupExpensesData, GroupsListGroupExpensesResponse, GroupsCreateExpenseData, GroupsCreateExpenseResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserProfileResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+
+export class GroupsService {
+    /**
+     * List User Groups
+     * Listar los grupos del usuario autenticado.
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns GroupsPublic Successful Response
+     * @throws ApiError
+     */
+    public static listUserGroups(data: GroupsListUserGroupsData = {}): CancelablePromise<GroupsListUserGroupsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/groups/',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Group
+     * Crear un nuevo grupo.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns GroupPublic Successful Response
+     * @throws ApiError
+     */
+    public static createGroup(data: GroupsCreateGroupData): CancelablePromise<GroupsCreateGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/groups/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Group
+     * Obtener detalle de un grupo y sus integrantes.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @returns GroupDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static readGroup(data: GroupsReadGroupData): CancelablePromise<GroupsReadGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/groups/{group_id}',
+            path: {
+                group_id: data.groupId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Group
+     * Editar configuracion basica de un grupo.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.requestBody
+     * @returns GroupDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateGroup(data: GroupsUpdateGroupData): CancelablePromise<GroupsUpdateGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/groups/{group_id}',
+            path: {
+                group_id: data.groupId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Group
+     * Eliminar un grupo.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteGroup(data: GroupsDeleteGroupData): CancelablePromise<GroupsDeleteGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/groups/{group_id}',
+            path: {
+                group_id: data.groupId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Group Member
+     * Anadir participante a un grupo por email.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.requestBody
+     * @returns GroupMemberPublic Successful Response
+     * @throws ApiError
+     */
+    public static addGroupMember(data: GroupsAddGroupMemberData): CancelablePromise<GroupsAddGroupMemberResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/groups/{group_id}/members',
+            path: {
+                group_id: data.groupId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Group Member
+     * Quitar participante de un grupo.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.userId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static removeGroupMember(data: GroupsRemoveGroupMemberData): CancelablePromise<GroupsRemoveGroupMemberResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/groups/{group_id}/members/{user_id}',
+            path: {
+                group_id: data.groupId,
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Current User Group Expenses
+     * Listar todos los gastos de los grupos del usuario con el monto que le corresponde.
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns UserExpensesPublic Successful Response
+     * @throws ApiError
+     */
+    public static listCurrentUserGroupExpenses(data: GroupsListCurrentUserGroupExpensesData = {}): CancelablePromise<GroupsListCurrentUserGroupExpensesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/groups/me/expenses',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Group Expenses
+     * Listar los gastos de un grupo para sus miembros.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.skip
+     * @param data.limit
+     * @returns ExpensesPublic Successful Response
+     * @throws ApiError
+     */
+    public static listGroupExpenses(data: GroupsListGroupExpensesData): CancelablePromise<GroupsListGroupExpensesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/groups/{group_id}/expenses',
+            path: {
+                group_id: data.groupId
+            },
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Expense
+     * Registrar un nuevo gasto en un grupo.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.requestBody
+     * @returns ExpensePublic Successful Response
+     * @throws ApiError
+     */
+    public static createExpense(data: GroupsCreateExpenseData): CancelablePromise<GroupsCreateExpenseResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/groups/{group_id}/expenses',
+            path: {
+                group_id: data.groupId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
 
 export class ItemsService {
     /**
@@ -342,6 +574,19 @@ export class UsersService {
             errors: {
                 422: 'Validation Error'
             }
+        });
+    }
+    
+    /**
+     * Read User Profile
+     * Obtener perfil del usuario autenticado con datos garantizados para la UI.
+     * @returns UserProfileInfo Successful Response
+     * @throws ApiError
+     */
+    public static readUserProfile(): CancelablePromise<UsersReadUserProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/users/me/profile'
         });
     }
     
