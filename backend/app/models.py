@@ -1,8 +1,9 @@
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -238,7 +239,12 @@ class Expense(ExpenseBase, table=True):
 
 
 class SettlementPaymentBase(SQLModel):
-    amount: float = Field(gt=0)
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+
+    @field_validator("amount", mode="after")
+    @classmethod
+    def round_amount(cls, value: Decimal) -> Decimal:
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 class SettlementPayment(SettlementPaymentBase, table=True):

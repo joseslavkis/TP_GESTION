@@ -536,16 +536,28 @@ def test_create_settlement_payment_validates_relation_amount_and_actor(
         headers=second_user_headers,
         json={
             "from_user_id": str(second_user_id),
-            "to_user_id": owner["id"],
-            "amount": 11,
+            "to_user_id": str(fourth_user.id),
+            "amount": 21,
         },
     )
     assert exceeds_pending_response.status_code == 400
     assert exceeds_pending_response.json()["detail"] == (
-        "Payment amount exceeds the pending debt for this settlement"
+        "Payment amount exceeds the sender's pending debt"
     )
 
-    invalid_relation_response = client.post(
+    valid_non_suggested_relation_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=third_user_headers,
+        json={
+            "from_user_id": str(third_user.id),
+            "to_user_id": owner["id"],
+            "amount": 5.126,
+        },
+    )
+    assert valid_non_suggested_relation_response.status_code == 200
+    assert valid_non_suggested_relation_response.json()["amount"] == 5.13
+
+    exceeds_receiver_credit_response = client.post(
         f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
         headers=third_user_headers,
         json={
@@ -554,9 +566,37 @@ def test_create_settlement_payment_validates_relation_amount_and_actor(
             "amount": 5,
         },
     )
-    assert invalid_relation_response.status_code == 400
-    assert invalid_relation_response.json()["detail"] == (
-        "Payment must match a suggested settlement relationship"
+    assert exceeds_receiver_credit_response.status_code == 400
+    assert exceeds_receiver_credit_response.json()["detail"] == (
+        "Payment amount exceeds the receiver's pending credit"
+    )
+
+    sender_not_debtor_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=normal_user_token_headers,
+        json={
+            "from_user_id": owner["id"],
+            "to_user_id": str(fourth_user.id),
+            "amount": 5,
+        },
+    )
+    assert sender_not_debtor_response.status_code == 400
+    assert sender_not_debtor_response.json()["detail"] == (
+        "Sender must have an outstanding debt"
+    )
+
+    receiver_not_creditor_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=second_user_headers,
+        json={
+            "from_user_id": str(second_user_id),
+            "to_user_id": str(third_user.id),
+            "amount": 5,
+        },
+    )
+    assert receiver_not_creditor_response.status_code == 400
+    assert receiver_not_creditor_response.json()["detail"] == (
+        "Receiver must have an outstanding credit"
     )
 
     rounds_to_zero_response = client.post(
@@ -564,7 +604,7 @@ def test_create_settlement_payment_validates_relation_amount_and_actor(
         headers=second_user_headers,
         json={
             "from_user_id": str(second_user_id),
-            "to_user_id": owner["id"],
+            "to_user_id": str(fourth_user.id),
             "amount": 0.004,
         },
     )
@@ -572,6 +612,54 @@ def test_create_settlement_payment_validates_relation_amount_and_actor(
     assert rounds_to_zero_response.json()["detail"] == (
         "Payment amount must be at least 0.01 after rounding"
     )
+
+
+def test_create_settlement_payment_returns_generic_500_and_logs_exception(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    db: Session,
+    monkeypatch: Any,
+    caplog: Any,
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    creditor = _get_current_user(client, normal_user_token_headers)
+    debtor_email, debtor_id = _add_member_directly(db, group_id)
+
+    creditor_member = db.get(GroupMember, (uuid.UUID(creditor["id"]), group_id))
+    debtor_member = db.get(GroupMember, (debtor_id, group_id))
+    assert creditor_member and debtor_member
+
+    creditor_member.balance = 10.0
+    debtor_member.balance = -10.0
+    db.add(creditor_member)
+    db.add(debtor_member)
+    db.commit()
+
+    debtor_headers = authentication_token_from_email(
+        client=client, email=debtor_email, db=db
+    )
+
+    def failing_commit(self: Session) -> None:
+        raise RuntimeError("boom settlement commit")
+
+    monkeypatch.setattr(Session, "commit", failing_commit)
+
+    with caplog.at_level("ERROR", logger="app.api.routes.groups"):
+        response = client.post(
+            f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+            headers=debtor_headers,
+            json={
+                "from_user_id": str(debtor_id),
+                "to_user_id": creditor["id"],
+                "amount": 5,
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Internal server error"
+    assert "boom settlement commit" not in response.text
+    assert "boom settlement commit" in caplog.text
 
 
 def test_create_expense_rejects_invalid_members_and_custom_participants(
