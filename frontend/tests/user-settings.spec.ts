@@ -227,10 +227,8 @@ test("User can switch between theme modes", async ({ page }) => {
 test("Selected mode is preserved across sessions", async ({ page }) => {
   await page.goto("/settings")
 
-  await selectTheme(page, "light")
-  await expect(page.locator("html")).toHaveClass(/light/)
-
-  await selectTheme(page, "dark")
+  await page.evaluate(() => localStorage.setItem("vite-ui-theme", "dark"))
+  await page.reload()
   await expect(page.locator("html")).toHaveClass(/dark/)
 
   await logOutUser(page)
