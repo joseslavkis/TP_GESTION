@@ -1,5 +1,5 @@
 import uuid
-from typing import Any
+from typing import Any, TypedDict
 
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import Session, col, func, select
@@ -22,12 +22,26 @@ from app.models import (
     GroupsPublic,
     GroupUpdate,
     Message,
+    SettlementPayment,
+    SettlementPaymentCreate,
+    SettlementPaymentPublic,
     User,
     UserExpensePublic,
     UserExpensesPublic,
 )
 
 router = APIRouter(prefix="/groups", tags=["groups"])
+
+
+class SettlementSuggestion(TypedDict):
+    from_user_id: uuid.UUID
+    to_user_id: uuid.UUID
+    amount: float
+
+
+class PendingSettlementMember(TypedDict):
+    user_id: uuid.UUID
+    pending: float
 
 
 def _build_expense_public(
@@ -58,6 +72,96 @@ def _build_group_member_public(member: GroupMember, user: User) -> GroupMemberPu
         is_admin=member.is_admin,
         balance=member.balance,
         joined_at=member.joined_at,
+    )
+
+
+def _build_settlement_payment_public(
+    payment: SettlementPayment,
+) -> SettlementPaymentPublic:
+    return SettlementPaymentPublic(
+        id=payment.id,
+        group_id=payment.group_id,
+        from_user_id=payment.from_user_id,
+        to_user_id=payment.to_user_id,
+        amount=payment.amount,
+        created_at=payment.created_at,
+    )
+
+
+def _round_currency(value: float) -> float:
+    return round(value, 2)
+
+
+def _list_group_members(session: Session, group_id: uuid.UUID) -> list[GroupMember]:
+    return list(
+        session.exec(
+        select(GroupMember)
+        .where(GroupMember.group_id == group_id)
+        .order_by(col(GroupMember.joined_at), col(GroupMember.user_id))
+        ).all()
+    )
+
+
+def _build_settlement_suggestions(
+    members: list[GroupMember],
+) -> list[SettlementSuggestion]:
+    creditors = [
+        PendingSettlementMember(
+            user_id=member.user_id,
+            pending=_round_currency(member.balance),
+        )
+        for member in members
+        if member.balance > 0.01
+    ]
+    debtors = [
+        PendingSettlementMember(
+            user_id=member.user_id,
+            pending=_round_currency(abs(member.balance)),
+        )
+        for member in members
+        if member.balance < -0.01
+    ]
+    transfers: list[SettlementSuggestion] = []
+
+    creditor_index = 0
+    debtor_index = 0
+    while creditor_index < len(creditors) and debtor_index < len(debtors):
+        creditor = creditors[creditor_index]
+        debtor = debtors[debtor_index]
+        amount = _round_currency(min(creditor["pending"], debtor["pending"]))
+
+        if amount > 0.01:
+            transfers.append(
+                SettlementSuggestion(
+                    from_user_id=debtor["user_id"],
+                    to_user_id=creditor["user_id"],
+                    amount=amount,
+                )
+            )
+
+        creditor["pending"] = _round_currency(creditor["pending"] - amount)
+        debtor["pending"] = _round_currency(debtor["pending"] - amount)
+
+        if creditor["pending"] <= 0.01:
+            creditor_index += 1
+        if debtor["pending"] <= 0.01:
+            debtor_index += 1
+
+    return transfers
+
+
+def _find_suggested_transfer(
+    members: list[GroupMember], from_user_id: uuid.UUID, to_user_id: uuid.UUID
+) -> SettlementSuggestion | None:
+    transfers = _build_settlement_suggestions(members)
+    return next(
+        (
+            transfer
+            for transfer in transfers
+            if transfer["from_user_id"] == from_user_id
+            and transfer["to_user_id"] == to_user_id
+        ),
+        None,
     )
 
 
@@ -105,6 +209,11 @@ def _build_group_detail(
         .where(col(GroupMember.group_id) == group.id)
         .order_by(col(GroupMember.joined_at))
     ).all()
+    settlement_payments = session.exec(
+        select(SettlementPayment)
+        .where(SettlementPayment.group_id == group.id)
+        .order_by(col(SettlementPayment.created_at).desc())
+    ).all()
 
     return GroupDetailPublic(
         id=group.id,
@@ -114,6 +223,10 @@ def _build_group_detail(
         current_user_balance=balance,
         members=[
             _build_group_member_public(member, user) for member, user in member_rows
+        ],
+        settlement_payments=[
+            _build_settlement_payment_public(payment)
+            for payment in settlement_payments
         ],
     )
 
@@ -578,3 +691,89 @@ def create_expense(
         ) from exc
 
     return _build_expense_public(db_expense, participants_list)
+
+
+@router.post("/{group_id}/settlement-payments", response_model=SettlementPaymentPublic)
+def create_settlement_payment(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    group_id: uuid.UUID,
+    payment_in: SettlementPaymentCreate,
+) -> Any:
+    """
+    Registrar un pago de deuda sobre la liquidacion sugerida actual.
+    """
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found"
+        )
+
+    _require_membership(session, group_id, current_user)
+
+    if current_user.id != payment_in.from_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only register payments for your own debt",
+        )
+
+    members = _list_group_members(session, group_id)
+    members_by_id = {member.user_id: member for member in members}
+    if payment_in.from_user_id not in members_by_id or payment_in.to_user_id not in members_by_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both users must be members of this group",
+        )
+
+    suggested_transfer = _find_suggested_transfer(
+        members, payment_in.from_user_id, payment_in.to_user_id
+    )
+    if not suggested_transfer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment must match a suggested settlement relationship",
+        )
+
+    pending_amount = float(suggested_transfer["amount"])
+    payment_amount = _round_currency(payment_in.amount)
+    if payment_amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment amount must be at least 0.01 after rounding",
+        )
+    if payment_amount > pending_amount + 0.009:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment amount exceeds the pending debt for this settlement",
+        )
+
+    debtor_member = members_by_id[payment_in.from_user_id]
+    creditor_member = members_by_id[payment_in.to_user_id]
+
+    try:
+        payment = SettlementPayment(
+            group_id=group_id,
+            from_user_id=payment_in.from_user_id,
+            to_user_id=payment_in.to_user_id,
+            amount=payment_amount,
+        )
+        session.add(payment)
+
+        debtor_member.balance = _round_currency(debtor_member.balance + payment_amount)
+        creditor_member.balance = _round_currency(
+            creditor_member.balance - payment_amount
+        )
+        session.add(debtor_member)
+        session.add(creditor_member)
+
+        session.commit()
+        session.refresh(payment)
+    except Exception as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno: {exc}",
+        ) from exc
+
+    return _build_settlement_payment_public(payment)

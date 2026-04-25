@@ -391,6 +391,189 @@ def test_create_custom_expense_updates_balances(
     assert second_user_group["current_user_balance"] == -70.0
 
 
+def test_create_settlement_payment_supports_partial_and_total_payments(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    creditor = _get_current_user(client, normal_user_token_headers)
+    debtor_email, debtor_id = _add_member_directly(db, group_id)
+
+    expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Supermercado",
+            "amount": 100,
+            "payer_id": creditor["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert expense_response.status_code == 200
+
+    debtor_headers = authentication_token_from_email(
+        client=client, email=debtor_email, db=db
+    )
+
+    partial_payment_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=debtor_headers,
+        json={
+            "from_user_id": str(debtor_id),
+            "to_user_id": creditor["id"],
+            "amount": 20,
+        },
+    )
+    assert partial_payment_response.status_code == 200
+    partial_payment = partial_payment_response.json()
+    assert partial_payment["group_id"] == group["id"]
+    assert partial_payment["amount"] == 20.0
+
+    debtor_group_detail_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}", headers=debtor_headers
+    )
+    assert debtor_group_detail_response.status_code == 200
+    debtor_group_detail = debtor_group_detail_response.json()
+    assert debtor_group_detail["current_user_balance"] == -30.0
+    assert len(debtor_group_detail["settlement_payments"]) == 1
+    assert debtor_group_detail["settlement_payments"][0]["amount"] == 20.0
+
+    total_payment_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=debtor_headers,
+        json={
+            "from_user_id": str(debtor_id),
+            "to_user_id": creditor["id"],
+            "amount": 30,
+        },
+    )
+    assert total_payment_response.status_code == 200
+    assert total_payment_response.json()["amount"] == 30.0
+
+    creditor_group_detail_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}", headers=normal_user_token_headers
+    )
+    assert creditor_group_detail_response.status_code == 200
+    creditor_group_detail = creditor_group_detail_response.json()
+    assert creditor_group_detail["current_user_balance"] == 0.0
+    assert len(creditor_group_detail["settlement_payments"]) == 2
+
+    debtor_group_detail_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}", headers=debtor_headers
+    )
+    assert debtor_group_detail_response.status_code == 200
+    assert debtor_group_detail_response.json()["current_user_balance"] == 0.0
+
+
+def test_create_settlement_payment_validates_relation_amount_and_actor(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, second_user_id = _add_member_directly(db, group_id)
+    third_user = create_random_user(db)
+    fourth_user = create_random_user(db)
+    db.add(
+        GroupMember(
+            user_id=third_user.id,
+            group_id=group_id,
+            is_admin=False,
+            balance=0.0,
+        )
+    )
+    db.add(
+        GroupMember(
+            user_id=fourth_user.id,
+            group_id=group_id,
+            is_admin=False,
+            balance=0.0,
+        )
+    )
+    db.commit()
+
+    owner_member = db.get(GroupMember, (uuid.UUID(owner["id"]), group_id))
+    second_member = db.get(GroupMember, (second_user_id, group_id))
+    third_member = db.get(GroupMember, (third_user.id, group_id))
+    fourth_member = db.get(GroupMember, (fourth_user.id, group_id))
+    assert owner_member and second_member and third_member and fourth_member
+
+    owner_member.balance = 10.0
+    second_member.balance = -20.0
+    third_member.balance = -30.0
+    fourth_member.balance = 40.0
+    db.add(owner_member)
+    db.add(second_member)
+    db.add(third_member)
+    db.add(fourth_member)
+    db.commit()
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+    third_user_headers = authentication_token_from_email(
+        client=client, email=third_user.email, db=db
+    )
+
+    forbidden_actor_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=normal_user_token_headers,
+        json={
+            "from_user_id": str(second_user_id),
+            "to_user_id": owner["id"],
+            "amount": 5,
+        },
+    )
+    assert forbidden_actor_response.status_code == 403
+    assert forbidden_actor_response.json()["detail"] == (
+        "You can only register payments for your own debt"
+    )
+
+    exceeds_pending_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=second_user_headers,
+        json={
+            "from_user_id": str(second_user_id),
+            "to_user_id": owner["id"],
+            "amount": 11,
+        },
+    )
+    assert exceeds_pending_response.status_code == 400
+    assert exceeds_pending_response.json()["detail"] == (
+        "Payment amount exceeds the pending debt for this settlement"
+    )
+
+    invalid_relation_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=third_user_headers,
+        json={
+            "from_user_id": str(third_user.id),
+            "to_user_id": owner["id"],
+            "amount": 5,
+        },
+    )
+    assert invalid_relation_response.status_code == 400
+    assert invalid_relation_response.json()["detail"] == (
+        "Payment must match a suggested settlement relationship"
+    )
+
+    rounds_to_zero_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=second_user_headers,
+        json={
+            "from_user_id": str(second_user_id),
+            "to_user_id": owner["id"],
+            "amount": 0.004,
+        },
+    )
+    assert rounds_to_zero_response.status_code == 400
+    assert rounds_to_zero_response.json()["detail"] == (
+        "Payment amount must be at least 0.01 after rounding"
+    )
+
+
 def test_create_expense_rejects_invalid_members_and_custom_participants(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:

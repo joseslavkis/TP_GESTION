@@ -56,6 +56,7 @@ export type GroupDetailPublic = {
     created_at: string;
     current_user_balance: number;
     members: Array<GroupMemberPublic>;
+    settlement_payments: Array<SettlementPaymentPublic>;
 };
 
 export type GroupMemberCreate = {
@@ -119,6 +120,21 @@ export type ItemUpdate = {
 
 export type Message = {
     message: string;
+};
+
+export type SettlementPaymentCreate = {
+    amount: number;
+    from_user_id: string;
+    to_user_id: string;
+};
+
+export type SettlementPaymentPublic = {
+    amount: number;
+    id: string;
+    group_id: string;
+    from_user_id: string;
+    to_user_id: string;
+    created_at: string;
 };
 
 export type NewPassword = {
@@ -285,6 +301,13 @@ export type GroupsCreateExpenseData = {
 };
 
 export type GroupsCreateExpenseResponse = (ExpensePublic);
+
+export type GroupsCreateSettlementPaymentData = {
+    groupId: string;
+    requestBody: SettlementPaymentCreate;
+};
+
+export type GroupsCreateSettlementPaymentResponse = (SettlementPaymentPublic);
 
 export type ItemsReadItemsData = {
     limit?: number;

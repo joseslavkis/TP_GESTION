@@ -18,10 +18,12 @@ import {
   type ExpensePublic,
   type GroupMemberPublic,
   GroupsService,
+  type SettlementPaymentPublic,
 } from "@/client"
 import { AddExpenseDialog } from "@/components/Groups/AddExpenseDialog"
 import { AddMemberDialog } from "@/components/Groups/AddMemberDialog"
 import { EditGroupDialog } from "@/components/Groups/EditGroupDialog"
+import { RegisterSettlementPaymentDialog } from "@/components/Groups/RegisterSettlementPaymentDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,6 +63,16 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+  })
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   })
 }
 
@@ -174,6 +186,7 @@ function GroupDetailPage() {
   const membersById = useMemo(() => {
     return new Map(group?.members.map((member) => [member.user_id, member]))
   }, [group?.members])
+  const settlementPayments = group?.settlement_payments ?? []
 
   const onDeleteGroup = () => {
     if (window.confirm("Eliminar este grupo y todos sus gastos?")) {
@@ -325,7 +338,7 @@ function GroupDetailPage() {
             {settlement.map((transfer) => (
               <div
                 key={`${transfer.from.user_id}-${transfer.to.user_id}`}
-                className="flex items-center justify-between gap-4 p-4"
+                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium">
@@ -336,6 +349,20 @@ function GroupDetailPage() {
                     {formatCurrency(transfer.amount)}
                   </p>
                 </div>
+                {currentUser?.id === transfer.from.user_id ? (
+                  <RegisterSettlementPaymentDialog
+                    groupId={group.id}
+                    fromUserId={transfer.from.user_id}
+                    toUserId={transfer.to.user_id}
+                    fromLabel={memberLabel(transfer.from)}
+                    toLabel={memberLabel(transfer.to)}
+                    maxAmount={transfer.amount}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Solo {memberLabel(transfer.from)} puede registrar este pago.
+                  </p>
+                )}
               </div>
             ))}
             {settlement.length === 0 ? (
@@ -343,6 +370,28 @@ function GroupDetailPage() {
                 No hay deudas pendientes entre integrantes.
               </div>
             ) : null}
+          </div>
+          <div className="border-t p-4">
+            <div className="mb-3">
+              <h3 className="font-medium">Historial de pagos</h3>
+              <p className="text-sm text-muted-foreground">
+                Registra quien pago, a quien, cuanto y cuando.
+              </p>
+            </div>
+            <div className="divide-y rounded-md border">
+              {settlementPayments.map((payment) => (
+                <SettlementPaymentRow
+                  key={payment.id}
+                  payment={payment}
+                  membersById={membersById}
+                />
+              ))}
+              {settlementPayments.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  Todavia no se registraron pagos de deuda.
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
       </div>
@@ -400,6 +449,31 @@ function GroupDetailPage() {
           ) : null}
         </div>
       </section>
+    </div>
+  )
+}
+
+function SettlementPaymentRow({
+  payment,
+  membersById,
+}: {
+  payment: SettlementPaymentPublic
+  membersById: Map<string, GroupMemberPublic>
+}) {
+  const debtor = membersById.get(payment.from_user_id)
+  const creditor = membersById.get(payment.to_user_id)
+
+  return (
+    <div className="grid gap-2 p-4 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="min-w-0">
+        <p className="truncate font-medium">
+          {memberLabel(debtor)} pago a {memberLabel(creditor)}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Registrado el {formatDateTime(payment.created_at)}
+        </p>
+      </div>
+      <p className="font-semibold">{formatCurrency(payment.amount)}</p>
     </div>
   )
 }

@@ -163,6 +163,9 @@ class Group(GroupBase, table=True):
     expenses: list["Expense"] = Relationship(
         back_populates="group", cascade_delete=True
     )
+    settlement_payments: list["SettlementPayment"] = Relationship(
+        back_populates="group", cascade_delete=True
+    )
 
 
 class GroupCreate(GroupBase):
@@ -196,6 +199,7 @@ class GroupPublic(GroupBase):
 
 class GroupDetailPublic(GroupPublic):
     members: list[GroupMemberPublic]
+    settlement_payments: list["SettlementPaymentPublic"]
 
 
 class GroupsPublic(SQLModel):
@@ -231,6 +235,36 @@ class Expense(ExpenseBase, table=True):
     participants: list[ExpenseParticipant] = Relationship(
         back_populates="expense", cascade_delete=True
     )
+
+
+class SettlementPaymentBase(SQLModel):
+    amount: float = Field(gt=0)
+
+
+class SettlementPayment(SettlementPaymentBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    group_id: uuid.UUID = Field(foreign_key="group.id", ondelete="CASCADE")
+    from_user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE")
+    to_user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE")
+
+    group: Group = Relationship(back_populates="settlement_payments")
+
+
+class SettlementPaymentCreate(SettlementPaymentBase):
+    from_user_id: uuid.UUID
+    to_user_id: uuid.UUID
+
+
+class SettlementPaymentPublic(SettlementPaymentBase):
+    id: uuid.UUID
+    group_id: uuid.UUID
+    from_user_id: uuid.UUID
+    to_user_id: uuid.UUID
+    created_at: datetime
 
 
 class ExpenseParticipantIn(BaseModel):
