@@ -243,8 +243,10 @@ class SettlementPaymentBase(SQLModel):
 
     @field_validator("amount", mode="after")
     @classmethod
-    def round_amount(cls, value: Decimal) -> Decimal:
-        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    def round_amount(cls, value: Decimal | float | int) -> Decimal:
+        return Decimal(str(value)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
 
 class SettlementPayment(SettlementPaymentBase, table=True):
@@ -265,7 +267,7 @@ class SettlementPaymentCreate(SettlementPaymentBase):
     to_user_id: uuid.UUID
 
 
-class SettlementPaymentPublic(SettlementPaymentBase):
+class SettlementPaymentPublic(SQLModel):
     amount: float
     id: uuid.UUID
     group_id: uuid.UUID
