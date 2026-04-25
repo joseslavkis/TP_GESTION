@@ -3,6 +3,36 @@
 set -e
 set -x
 
+if ! command -v uv >/dev/null 2>&1; then
+  if [ -n "${USERNAME:-}" ] && [ -x "/c/Users/${USERNAME}/.local/bin/uv.exe" ]; then
+    export PATH="$PATH:/c/Users/${USERNAME}/.local/bin"
+  elif [ -x "$HOME/.local/bin/uv" ]; then
+    export PATH="$PATH:$HOME/.local/bin"
+  fi
+fi
+
+UV_BIN="$(command -v uv || command -v uv.exe || true)"
+BUN_BIN="$(command -v bun || command -v bun.exe || true)"
+
+if [ -z "$BUN_BIN" ]; then
+  if [ -n "${USERNAME:-}" ] && [ -x "/c/Users/${USERNAME}/.bun/bin/bun.exe" ]; then
+    export PATH="$PATH:/c/Users/${USERNAME}/.bun/bin"
+  elif [ -x "/mnt/c/Users/guido/.bun/bin/bun.exe" ]; then
+    export PATH="$PATH:/mnt/c/Users/guido/.bun/bin"
+  fi
+  BUN_BIN="$(command -v bun || command -v bun.exe || true)"
+fi
+
+if [ -z "$UV_BIN" ]; then
+  echo "uv not found in PATH"
+  exit 127
+fi
+
+if [ -z "$BUN_BIN" ]; then
+  echo "bun not found in PATH"
+  exit 127
+fi
+
 if [ -f .env.ci ]; then
   set -a
   source .env.ci
@@ -28,8 +58,8 @@ export FIRST_SUPERUSER_PASSWORD="${FIRST_SUPERUSER_PASSWORD:-testpassword123}"
 export ENVIRONMENT="${ENVIRONMENT:-local}"
 export BACKEND_CORS_ORIGINS="${BACKEND_CORS_ORIGINS:-[\"http://localhost:5173\",\"http://localhost:8000\"]}"
 
-uv run python -c "import app.main; import json; print(json.dumps(app.main.app.openapi()))" > ../openapi.json
+"$UV_BIN" run python -c "import app.main; import json; print(json.dumps(app.main.app.openapi()))" > ../openapi.json
 cd ..
 mv openapi.json frontend/
-bun run --filter frontend generate-client
-bun run lint
+"$BUN_BIN" run --filter frontend generate-client
+"$BUN_BIN" run lint
