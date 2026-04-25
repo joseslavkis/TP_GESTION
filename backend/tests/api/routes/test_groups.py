@@ -640,7 +640,7 @@ def test_create_settlement_payment_returns_generic_500_and_logs_exception(
         client=client, email=debtor_email, db=db
     )
 
-    def failing_commit(self: Session) -> None:
+    def failing_commit(_self: Session) -> None:
         raise RuntimeError("boom settlement commit")
 
     monkeypatch.setattr(Session, "commit", failing_commit)

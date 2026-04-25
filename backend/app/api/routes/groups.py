@@ -1,6 +1,6 @@
 import logging
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -75,15 +75,13 @@ def _build_settlement_payment_public(
         group_id=payment.group_id,
         from_user_id=payment.from_user_id,
         to_user_id=payment.to_user_id,
-        amount=payment.amount,
+        amount=float(payment.amount),
         created_at=payment.created_at,
     )
 
 
 def _round_currency(value: float | Decimal) -> float:
-    return float(
-        Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    )
+    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def _lock_group_members(
@@ -162,8 +160,7 @@ def _build_group_detail(
             _build_group_member_public(member, user) for member, user in member_rows
         ],
         settlement_payments=[
-            _build_settlement_payment_public(payment)
-            for payment in settlement_payments
+            _build_settlement_payment_public(payment) for payment in settlement_payments
         ],
     )
 
@@ -712,7 +709,7 @@ def create_settlement_payment(
             group_id=group_id,
             from_user_id=payment_in.from_user_id,
             to_user_id=payment_in.to_user_id,
-            amount=payment_amount,
+            amount=Decimal(payment_amount),
         )
         session.add(payment)
 

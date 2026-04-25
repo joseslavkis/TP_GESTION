@@ -122,8 +122,20 @@ export type Message = {
     message: string;
 };
 
+export type NewPassword = {
+    token: string;
+    new_password: string;
+};
+
+export type PrivateUserCreate = {
+    email: string;
+    password: string;
+    full_name: string;
+    is_verified?: boolean;
+};
+
 export type SettlementPaymentCreate = {
-    amount: number;
+    amount: (number | string);
     from_user_id: string;
     to_user_id: string;
 };
@@ -135,18 +147,6 @@ export type SettlementPaymentPublic = {
     from_user_id: string;
     to_user_id: string;
     created_at: string;
-};
-
-export type NewPassword = {
-    token: string;
-    new_password: string;
-};
-
-export type PrivateUserCreate = {
-    email: string;
-    password: string;
-    full_name: string;
-    is_verified?: boolean;
 };
 
 export type Token = {

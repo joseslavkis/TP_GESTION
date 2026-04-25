@@ -235,7 +235,7 @@ export class GroupsService {
             }
         });
     }
-
+    
     /**
      * Create Settlement Payment
      * Registrar un pago de deuda sobre la liquidacion sugerida actual.

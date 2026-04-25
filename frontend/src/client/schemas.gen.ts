@@ -264,10 +264,17 @@ export const GroupDetailPublicSchema = {
             },
             type: 'array',
             title: 'Members'
+        },
+        settlement_payments: {
+            items: {
+                '$ref': '#/components/schemas/SettlementPaymentPublic'
+            },
+            type: 'array',
+            title: 'Settlement Payments'
         }
     },
     type: 'object',
-    required: ['name', 'id', 'created_at', 'current_user_balance', 'members'],
+    required: ['name', 'id', 'created_at', 'current_user_balance', 'members', 'settlement_payments'],
     title: 'GroupDetailPublic'
 } as const;
 
@@ -611,6 +618,74 @@ export const PrivateUserCreateSchema = {
     type: 'object',
     required: ['email', 'password', 'full_name'],
     title: 'PrivateUserCreate'
+} as const;
+
+export const SettlementPaymentCreateSchema = {
+    properties: {
+        amount: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,13}0*$)\\d*\\.\\d*0*$)'
+                }
+            ],
+            title: 'Amount'
+        },
+        from_user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'From User Id'
+        },
+        to_user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'To User Id'
+        }
+    },
+    type: 'object',
+    required: ['amount', 'from_user_id', 'to_user_id'],
+    title: 'SettlementPaymentCreate'
+} as const;
+
+export const SettlementPaymentPublicSchema = {
+    properties: {
+        amount: {
+            type: 'number',
+            title: 'Amount'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Group Id'
+        },
+        from_user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'From User Id'
+        },
+        to_user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'To User Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['amount', 'id', 'group_id', 'from_user_id', 'to_user_id', 'created_at'],
+    title: 'SettlementPaymentPublic'
 } as const;
 
 export const TokenSchema = {
