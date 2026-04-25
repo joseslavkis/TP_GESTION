@@ -49,8 +49,8 @@ class UpdatePassword(SQLModel):
 class GroupMember(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", primary_key=True)
     group_id: uuid.UUID = Field(foreign_key="group.id", ondelete="CASCADE", primary_key=True)
-    is_admin: bool = Field(default=False) # CA 1: Identifica si es administrador
-    balance: float = Field(default=0.0)   # CA 3: Saldos iniciales en cero
+    is_admin: bool = Field(default=False)
+    balance: float = Field(default=0.0, ge=-1_000_000, le=1_000_000)
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Database model, database table inferred from class name
@@ -174,7 +174,7 @@ class ExpenseParticipant(SQLModel, table=True):
 
 class ExpenseBase(SQLModel):
     description: str = Field(min_length=1, max_length=255)
-    amount: float = Field(gt=0)
+    amount: float = Field(gt=0, le=1_000_000)
 
 class Expense(ExpenseBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
