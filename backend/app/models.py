@@ -239,7 +239,7 @@ class Expense(ExpenseBase, table=True):
 
 
 class SettlementPaymentBase(SQLModel):
-    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    amount: Decimal = Field(gt=0, max_digits=12)
 
     @field_validator("amount", mode="after")
     @classmethod
@@ -266,6 +266,7 @@ class SettlementPaymentCreate(SettlementPaymentBase):
 
 
 class SettlementPaymentPublic(SettlementPaymentBase):
+    amount: float
     id: uuid.UUID
     group_id: uuid.UUID
     from_user_id: uuid.UUID
