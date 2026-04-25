@@ -1,7 +1,7 @@
 """Add group expense tables
 
 Revision ID: 7b661e732f10
-Revises: 1a31ce608336
+Revises: fe56fa70289e
 Create Date: 2026-04-19 20:30:00.000000
 
 """

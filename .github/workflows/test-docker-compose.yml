@@ -25,4 +25,5 @@ jobs:
         run: curl http://localhost:8000/api/v1/utils/health-check
       - name: Test frontend is up
         run: curl http://localhost:5173
-      - run: docker compose down -v --remove-orphans
+      - run: docker compose --env-file .env.ci -f compose.yml -f compose.override.yml down -v --remove-orphans
+        if: always()
