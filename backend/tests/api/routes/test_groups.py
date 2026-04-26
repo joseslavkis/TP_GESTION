@@ -2,7 +2,7 @@ import uuid
 from typing import Any, cast
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.models import GroupMember
@@ -927,7 +927,6 @@ def test_delete_expense_reverts_balances(
     second_user_headers = authentication_token_from_email(
         client=client, email=second_user_email, db=db
     )
-    second_user = db.exec(select(User).where(User.email == second_user_email)).one()
 
     create_response = client.post(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
@@ -1061,7 +1060,7 @@ def test_delete_expense_with_removed_participant_is_rejected(
     assert "left the group" in delete_expense_response.json()["detail"]
 
 
-def test_update_expense_with_removed_historical_member_succeeds(
+def test_update_expense_with_removed_participant_is_rejected(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
     group = _create_group(client, normal_user_token_headers)
@@ -1100,6 +1099,8 @@ def test_update_expense_with_removed_historical_member_succeeds(
     )
     assert remove_member_response.status_code == 200
 
+    # El participante original ya no es miembro — el backend debe rechazar
+    # la actualización con 409 para preservar el invariante zero-sum.
     update_expense_response = client.patch(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
         headers=normal_user_token_headers,
@@ -1108,6 +1109,5 @@ def test_update_expense_with_removed_historical_member_succeeds(
             "amount": 120,
         },
     )
-    assert update_expense_response.status_code == 200
-    assert update_expense_response.json()["description"] == "Gasto historico editado"
-    assert update_expense_response.json()["amount"] == 120
+    assert update_expense_response.status_code == 409
+    assert "left the group" in update_expense_response.json()["detail"]
