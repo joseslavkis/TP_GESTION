@@ -627,7 +627,7 @@ def create_expense(
         )
 
     amounts_owed = _compute_amounts_owed(
-        amount=expense_in.amount,
+        amount=_round_currency(expense_in.amount),
         division_mode=expense_in.division_mode,
         participants_in=expense_in.participants,
         group_member_ids=group_member_ids,
