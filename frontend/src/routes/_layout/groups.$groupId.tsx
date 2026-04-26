@@ -182,20 +182,26 @@ function GroupDetailPage() {
                 <h1 className="text-2xl font-bold tracking-tight">
                   {group.name}
                 </h1>
-                <Badge
-                  variant={
-                    group.current_user_balance < 0 ? "destructive" : "secondary"
-                  }
-                >
-                  {formatCurrency(group.current_user_balance)}
-                </Badge>
               </div>
               <p className="mt-1 text-muted-foreground">
                 {group.description || "Sin descripcion"}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Total del grupo: {formatCurrency(totalExpenses)}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="secondary"
+                  className="px-3 py-1 text-sm font-semibold"
+                >
+                  Total del grupo: {formatCurrency(totalExpenses)}
+                </Badge>
+                <Badge
+                  variant={
+                    group.current_user_balance < 0 ? "destructive" : "secondary"
+                  }
+                  className="px-3 py-1 text-sm font-semibold"
+                >
+                  Mi balance: {formatCurrency(group.current_user_balance)}
+                </Badge>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
