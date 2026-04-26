@@ -929,6 +929,7 @@ def test_delete_expense_reverts_balances(
     second_user_headers = authentication_token_from_email(
         client=client, email=second_user_email, db=db
     )
+    second_user = db.exec(select(User).where(User.email == second_user_email)).one()
 
     create_response = client.post(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
@@ -944,6 +945,18 @@ def test_delete_expense_reverts_balances(
     assert create_response.status_code == 200
     expense_id = create_response.json()["id"]
 
+    # Verify balances are non-zero before deletion so we know the delete
+    # is actually doing work and not passing vacuously.
+    def get_balance(headers: dict) -> float:
+        resp = client.get(f"{settings.API_V1_STR}/groups/", headers=headers)
+        assert resp.status_code == 200
+        return next(
+            item for item in resp.json()["data"] if item["id"] == group["id"]
+        )["current_user_balance"]
+
+    assert get_balance(normal_user_token_headers) == 50.0   # payer: paid 100, owes 50
+    assert get_balance(second_user_headers) == -50.0        # debtor: owes 50
+
     delete_response = client.delete(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
         headers=normal_user_token_headers,
@@ -951,27 +964,8 @@ def test_delete_expense_reverts_balances(
     assert delete_response.status_code == 200
     assert delete_response.json()["message"] == "Expense deleted successfully"
 
-    owner_groups = client.get(
-        f"{settings.API_V1_STR}/groups/",
-        headers=normal_user_token_headers,
-    )
-    assert owner_groups.status_code == 200
-    owner_group = next(
-        item for item in owner_groups.json()["data"] if item["id"] == group["id"]
-    )
-    assert owner_group["current_user_balance"] == 0.0
-
-    second_user_groups = client.get(
-        f"{settings.API_V1_STR}/groups/",
-        headers=second_user_headers,
-    )
-    assert second_user_groups.status_code == 200
-    second_group = next(
-        item
-        for item in second_user_groups.json()["data"]
-        if item["id"] == group["id"]
-    )
-    assert second_group["current_user_balance"] == 0.0
+    assert get_balance(normal_user_token_headers) == 0.0
+    assert get_balance(second_user_headers) == 0.0
 
 
 def test_update_and_delete_expense_require_payer_or_admin(
@@ -1014,9 +1008,15 @@ def test_update_and_delete_expense_require_payer_or_admin(
     assert unauthorized_delete_response.status_code == 403
 
 
-def test_delete_expense_with_removed_historical_member_succeeds(
+def test_delete_expense_with_removed_participant_is_rejected(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
+    """
+    Deleting an expense whose participants no longer include all original
+    members must be rejected with 409 to preserve the zero-sum balance
+    invariant. The former member's share cannot be credited back because
+    they have no GroupMember row to update.
+    """
     group = _create_group(client, normal_user_token_headers)
     second_user = create_random_user(db)
 
@@ -1031,8 +1031,6 @@ def test_delete_expense_with_removed_historical_member_succeeds(
         client=client, email=second_user.email, db=db
     )
 
-    # Expense with only second user as participant keeps balances at zero,
-    # allowing member removal while preserving historical references.
     create_expense_response = client.post(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
         headers=second_user_headers,
@@ -1055,12 +1053,14 @@ def test_delete_expense_with_removed_historical_member_succeeds(
     )
     assert remove_member_response.status_code == 200
 
+    # The expense participant (second_user) is no longer a group member.
+    # The backend must reject deletion rather than produce a broken balance state.
     delete_expense_response = client.delete(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
         headers=normal_user_token_headers,
     )
-    assert delete_expense_response.status_code == 200
-    assert delete_expense_response.json()["message"] == "Expense deleted successfully"
+    assert delete_expense_response.status_code == 409
+    assert "left the group" in delete_expense_response.json()["detail"]
 
 
 def test_update_expense_with_removed_historical_member_succeeds(
