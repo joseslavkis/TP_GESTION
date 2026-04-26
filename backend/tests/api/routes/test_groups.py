@@ -911,9 +911,7 @@ def test_update_expense_recalculates_balances(
     )
     assert second_user_groups.status_code == 200
     second_group = next(
-        item
-        for item in second_user_groups.json()["data"]
-        if item["id"] == group["id"]
+        item for item in second_user_groups.json()["data"] if item["id"] == group["id"]
     )
     assert second_group["current_user_balance"] == -100.0
 
@@ -950,12 +948,12 @@ def test_delete_expense_reverts_balances(
     def get_balance(headers: dict) -> float:
         resp = client.get(f"{settings.API_V1_STR}/groups/", headers=headers)
         assert resp.status_code == 200
-        return next(
-            item for item in resp.json()["data"] if item["id"] == group["id"]
-        )["current_user_balance"]
+        return next(item for item in resp.json()["data"] if item["id"] == group["id"])[
+            "current_user_balance"
+        ]
 
-    assert get_balance(normal_user_token_headers) == 50.0   # payer: paid 100, owes 50
-    assert get_balance(second_user_headers) == -50.0        # debtor: owes 50
+    assert get_balance(normal_user_token_headers) == 50.0  # payer: paid 100, owes 50
+    assert get_balance(second_user_headers) == -50.0  # debtor: owes 50
 
     delete_response = client.delete(
         f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",

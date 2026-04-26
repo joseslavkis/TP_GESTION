@@ -1,12 +1,12 @@
-import { formatCurrency } from "@/utils/currency";
+import { formatCurrency } from "@/utils/currency"
 
 interface BalanceCardProps {
-  toReceive: number;
-  toPay: number;
+  toReceive: number
+  toPay: number
 }
 
 export const BalanceCard = ({ toReceive, toPay }: BalanceCardProps) => {
-  const balance = toReceive - toPay;
+  const balance = toReceive - toPay
   return (
     <section className="px-5">
       <div className="rounded-3xl bg-balance-card text-balance-card-foreground p-6 shadow-lg">
@@ -38,5 +38,5 @@ export const BalanceCard = ({ toReceive, toPay }: BalanceCardProps) => {
         </div>
       </div>
     </section>
-  );
-};
+  )
+}

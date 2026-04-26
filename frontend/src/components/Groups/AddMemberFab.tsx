@@ -1,8 +1,8 @@
-import { Plus } from "lucide-react";
+import { Plus } from "lucide-react"
 
 interface AddMemberFabProps {
-  label?: string;
-  onAddMember: () => void;
+  label?: string
+  onAddMember: () => void
 }
 
 const AddMemberFab: React.FC<AddMemberFabProps> = ({ label, onAddMember }) => {
@@ -14,7 +14,7 @@ const AddMemberFab: React.FC<AddMemberFabProps> = ({ label, onAddMember }) => {
     >
       <Plus className="size-6" />
     </button>
-  );
-};
+  )
+}
 
-export default AddMemberFab;
+export default AddMemberFab

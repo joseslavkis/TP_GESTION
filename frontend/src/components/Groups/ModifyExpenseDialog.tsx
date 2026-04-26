@@ -1,14 +1,14 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Pencil } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   type ExpenseCreate,
   type ExpensePublic,
   type GroupMemberPublic,
   GroupsService,
-} from "@/client";
-import { Button } from "@/components/ui/button";
+} from "@/client"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogClose,
@@ -18,34 +18,34 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { LoadingButton } from "@/components/ui/loading-button";
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import useCustomToast from "@/hooks/useCustomToast";
-import { handleError } from "@/utils";
+} from "@/components/ui/select"
+import useCustomToast from "@/hooks/useCustomToast"
+import { handleError } from "@/utils"
 
 interface ModifyExpenseDialogProps {
-  groupId: string;
-  expense: ExpensePublic;
-  members: GroupMemberPublic[];
-  disabled?: boolean;
+  groupId: string
+  expense: ExpensePublic
+  members: GroupMemberPublic[]
+  disabled?: boolean
 }
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
-});
+})
 
 function memberLabel(member: GroupMemberPublic) {
-  return member.full_name || member.email;
+  return member.full_name || member.email
 }
 
 function inferDivisionMode(
@@ -53,42 +53,42 @@ function inferDivisionMode(
   members: GroupMemberPublic[],
 ): ExpenseCreate["division_mode"] {
   if (expense.participants.length !== members.length) {
-    return "custom";
+    return "custom"
   }
 
-  const memberIds = new Set(members.map((member) => member.user_id));
+  const memberIds = new Set(members.map((member) => member.user_id))
   const participantIds = new Set(
     expense.participants.map((participant) => participant.user_id),
-  );
+  )
 
   if (memberIds.size !== participantIds.size) {
-    return "custom";
+    return "custom"
   }
   for (const memberId of memberIds) {
     if (!participantIds.has(memberId)) {
-      return "custom";
+      return "custom"
     }
   }
 
   const amounts = expense.participants.map(
     (participant) => participant.amount_owed,
-  );
+  )
   if (amounts.length <= 1) {
-    return "equitable";
+    return "equitable"
   }
-  const first = amounts[0];
-  const allEqual = amounts.every((amount) => Math.abs(amount - first) < 0.01);
-  return allEqual ? "equitable" : "custom";
+  const first = amounts[0]
+  const allEqual = amounts.every((amount) => Math.abs(amount - first) < 0.01)
+  return allEqual ? "equitable" : "custom"
 }
 
 function buildCustomAmounts(expense: ExpensePublic): Record<string, string> {
   return expense.participants.reduce<Record<string, string>>(
     (acc, participant) => {
-      acc[participant.user_id] = String(participant.amount_owed);
-      return acc;
+      acc[participant.user_id] = String(participant.amount_owed)
+      return acc
     },
     {},
-  );
+  )
 }
 
 export function ModifyExpenseDialog({
@@ -97,42 +97,42 @@ export function ModifyExpenseDialog({
   members,
   disabled = false,
 }: ModifyExpenseDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [description, setDescription] = useState(expense.description);
-  const [amount, setAmount] = useState(String(expense.amount));
-  const [payerId, setPayerId] = useState(expense.payer_id);
+  const [isOpen, setIsOpen] = useState(false)
+  const [description, setDescription] = useState(expense.description)
+  const [amount, setAmount] = useState(String(expense.amount))
+  const [payerId, setPayerId] = useState(expense.payer_id)
   const [divisionMode, setDivisionMode] = useState<
     ExpenseCreate["division_mode"]
-  >(inferDivisionMode(expense, members));
+  >(inferDivisionMode(expense, members))
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>(
     buildCustomAmounts(expense),
-  );
-  const queryClient = useQueryClient();
-  const { showErrorToast, showSuccessToast } = useCustomToast();
+  )
+  const queryClient = useQueryClient()
+  const { showErrorToast, showSuccessToast } = useCustomToast()
 
-  const numericAmount = Number(amount);
+  const numericAmount = Number(amount)
   const customTotal = members.reduce((total, member) => {
-    const memberAmount = Number(customAmounts[member.user_id] || 0);
-    return total + (Number.isFinite(memberAmount) ? memberAmount : 0);
-  }, 0);
+    const memberAmount = Number(customAmounts[member.user_id] || 0)
+    return total + (Number.isFinite(memberAmount) ? memberAmount : 0)
+  }, 0)
   const customDifference =
     Number.isFinite(numericAmount) && numericAmount > 0
       ? numericAmount - customTotal
-      : 0;
+      : 0
 
   useEffect(() => {
     if (isOpen) {
-      setDescription(expense.description);
-      setAmount(String(expense.amount));
-      setPayerId(expense.payer_id);
-      setDivisionMode(inferDivisionMode(expense, members));
-      setCustomAmounts(buildCustomAmounts(expense));
+      setDescription(expense.description)
+      setAmount(String(expense.amount))
+      setPayerId(expense.payer_id)
+      setDivisionMode(inferDivisionMode(expense, members))
+      setCustomAmounts(buildCustomAmounts(expense))
     }
-  }, [expense, isOpen, members]);
+  }, [expense, isOpen, members])
 
   const participantsForPayload = useMemo(() => {
     if (divisionMode !== "custom") {
-      return [];
+      return []
     }
 
     return members
@@ -140,8 +140,8 @@ export function ModifyExpenseDialog({
         user_id: member.user_id,
         amount: Number(customAmounts[member.user_id] || 0),
       }))
-      .filter((participant) => participant.amount > 0);
-  }, [customAmounts, divisionMode, members]);
+      .filter((participant) => participant.amount > 0)
+  }, [customAmounts, divisionMode, members])
 
   const mutation = useMutation({
     mutationFn: (payload: ExpenseCreate) =>
@@ -151,49 +151,49 @@ export function ModifyExpenseDialog({
         requestBody: payload,
       }),
     onSuccess: () => {
-      showSuccessToast("Gasto actualizado");
-      setIsOpen(false);
+      showSuccessToast("Gasto actualizado")
+      setIsOpen(false)
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["group-expenses", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["group-expenses", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] })
     },
-  });
+  })
 
   const onSubmit = () => {
-    const trimmedDescription = description.trim();
-    const parsedAmount = Number(amount);
+    const trimmedDescription = description.trim()
+    const parsedAmount = Number(amount)
 
     if (!trimmedDescription) {
-      showErrorToast("La descripcion es obligatoria");
-      return;
+      showErrorToast("La descripcion es obligatoria")
+      return
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      showErrorToast("El monto debe ser mayor a cero");
-      return;
+      showErrorToast("El monto debe ser mayor a cero")
+      return
     }
 
     if (!payerId) {
-      showErrorToast("Selecciona quien pago");
-      return;
+      showErrorToast("Selecciona quien pago")
+      return
     }
 
     if (divisionMode === "custom") {
       if (participantsForPayload.length === 0) {
-        showErrorToast("Carga al menos un participante");
-        return;
+        showErrorToast("Carga al menos un participante")
+        return
       }
 
       const total = participantsForPayload.reduce(
         (sum, participant) => sum + participant.amount,
         0,
-      );
+      )
       if (Math.abs(total - parsedAmount) >= 0.01) {
-        showErrorToast("La division personalizada debe sumar el total");
-        return;
+        showErrorToast("La division personalizada debe sumar el total")
+        return
       }
     }
 
@@ -203,8 +203,8 @@ export function ModifyExpenseDialog({
       payer_id: payerId,
       division_mode: divisionMode,
       participants: participantsForPayload,
-    });
-  };
+    })
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -336,5 +336,5 @@ export function ModifyExpenseDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

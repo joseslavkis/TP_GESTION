@@ -1,29 +1,29 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link as RouterLink,
   useNavigate,
-} from "@tanstack/react-router";
+} from "@tanstack/react-router"
 import {
   ArrowRight,
   CircleDollarSign,
   Receipt,
   Users,
   Wallet,
-} from "lucide-react";
+} from "lucide-react"
 
-import { GroupsService } from "@/client";
-import { AddGroupDialog } from "@/components/Groups/AddGroupDialog";
-import { Button } from "@/components/ui/button";
+import { GroupsService } from "@/client"
+import { AddGroupDialog } from "@/components/Groups/AddGroupDialog"
+import { GroupCard } from "@/components/Groups/GroupCard"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import useAuth from "@/hooks/useAuth";
-import { formatCurrency } from "@/utils/currency";
-import { GroupCard } from "@/components/Groups/GroupCard";
+} from "@/components/ui/card"
+import useAuth from "@/hooks/useAuth"
+import { formatCurrency } from "@/utils/currency"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -34,35 +34,35 @@ export const Route = createFileRoute("/_layout/")({
       },
     ],
   }),
-});
+})
 
 function Dashboard() {
-  const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const navigate = useNavigate()
+  const { user: currentUser } = useAuth()
   const groupsQuery = useQuery({
     queryKey: ["groups"],
     queryFn: () => GroupsService.listUserGroups({ skip: 0, limit: 100 }),
-  });
+  })
   const expensesQuery = useQuery({
     queryKey: ["dashboard-expenses"],
     queryFn: () =>
       GroupsService.listCurrentUserGroupExpenses({ skip: 0, limit: 100 }),
-  });
+  })
 
-  const groups = groupsQuery.data?.data ?? [];
-  const expenses = expensesQuery.data?.data ?? [];
+  const groups = groupsQuery.data?.data ?? []
+  const expenses = expensesQuery.data?.data ?? []
   const balance = groups.reduce(
     (total, group) => total + group.current_user_balance,
     0,
-  );
+  )
   const toReceive = groups.reduce(
     (total, group) => total + Math.max(group.current_user_balance, 0),
     0,
-  );
+  )
   const toPay = groups.reduce(
     (total, group) => total + Math.abs(Math.min(group.current_user_balance, 0)),
     0,
-  );
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -192,5 +192,5 @@ function Dashboard() {
         </section>
       </div>
     </div>
-  );
+  )
 }

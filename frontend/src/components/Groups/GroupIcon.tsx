@@ -1,19 +1,19 @@
 interface GroupIconProps {
-  name: string;
+  name: string
 }
 
 export const GroupIcon = ({ name }: GroupIconProps) => {
   const hue =
-    Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
-  const bgLight = `hsl(${hue}, 70%, 78%)`;
-  const bgDark = `hsl(${hue}, 60%, 68%)`;
+    Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360
+  const bgLight = `hsl(${hue}, 70%, 78%)`
+  const bgDark = `hsl(${hue}, 60%, 68%)`
   const initials =
     name
       .trim()
       .split(/\s+/)
       .filter(Boolean)
       .map((word) => word.charAt(0).toUpperCase())
-      .join("") || "?";
+      .join("") || "?"
 
   return (
     <div
@@ -27,5 +27,5 @@ export const GroupIcon = ({ name }: GroupIconProps) => {
     >
       {initials}
     </div>
-  );
-};
+  )
+}

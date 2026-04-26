@@ -1,22 +1,22 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
-import { formatCurrency } from "@/utils/currency";
-import { GroupPublic } from "@/client";
-import { GroupIcon } from "@/components/Groups/GroupIcon";
-import { Badge } from "@/components/ui/badge";
+import { Link } from "@tanstack/react-router"
+import { ArrowRight } from "lucide-react"
+import type { GroupPublic } from "@/client"
+import { GroupIcon } from "@/components/Groups/GroupIcon"
+import { Badge } from "@/components/ui/badge"
+import { formatCurrency } from "@/utils/currency"
 
 interface GroupCardProps {
-  groupPublic: GroupPublic;
+  groupPublic: GroupPublic
 }
 
 export const GroupCard = ({ groupPublic }: GroupCardProps) => {
-  const { name, description, id, current_user_balance } = groupPublic;
+  const { name, description, id, current_user_balance } = groupPublic
   const balanceStatus =
     current_user_balance === 0
       ? "¡Todo saldado!"
       : current_user_balance < 0
         ? "Debés"
-        : "Te deben";
+        : "Te deben"
 
   return (
     <Link
@@ -49,5 +49,5 @@ export const GroupCard = ({ groupPublic }: GroupCardProps) => {
         <ArrowRight className="size-4" />
       </div>
     </Link>
-  );
-};
+  )
+}

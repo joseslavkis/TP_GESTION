@@ -15,8 +15,8 @@ from app.models import (
     ExpenseParticipantIn,
     ExpenseParticipantPublic,
     ExpensePublic,
-    ExpenseUpdate,
     ExpensesPublic,
+    ExpenseUpdate,
     Group,
     GroupCreate,
     GroupDetailPublic,
@@ -155,7 +155,9 @@ def _compute_amounts_owed(
     )
 
 
-def _can_manage_expense(current_user: User, membership: GroupMember, expense: Expense) -> bool:
+def _can_manage_expense(
+    current_user: User, membership: GroupMember, expense: Expense
+) -> bool:
     return membership.is_admin or expense.payer_id == current_user.id
 
 
@@ -174,7 +176,8 @@ def _infer_division_mode(
         return "equitable"
 
     values = [
-        _round_currency(participant.amount_owed) for participant in existing_participants
+        _round_currency(participant.amount_owed)
+        for participant in existing_participants
     ]
     reference = values[0]
     if all(abs(value - reference) < 0.01 for value in values[1:]):
@@ -748,7 +751,9 @@ def update_expense(
         # act on — a concurrent update can no longer change these rows
         # between our read and our write.
         existing_participants = session.exec(
-            select(ExpenseParticipant).where(ExpenseParticipant.expense_id == expense_id)
+            select(ExpenseParticipant).where(
+                ExpenseParticipant.expense_id == expense_id
+            )
         ).all()
         old_amounts_owed = {
             participant.user_id: _round_currency(participant.amount_owed)

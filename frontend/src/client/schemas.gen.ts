@@ -181,6 +181,76 @@ export const ExpensePublicSchema = {
     title: 'ExpensePublic'
 } as const;
 
+export const ExpenseUpdateSchema = {
+    properties: {
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        amount: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Amount'
+        },
+        payer_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Payer Id'
+        },
+        participants: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/ExpenseParticipantIn'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Participants'
+        },
+        division_mode: {
+            anyOf: [
+                {
+                    type: 'string',
+                    enum: ['equitable', 'custom']
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Division Mode'
+        }
+    },
+    type: 'object',
+    title: 'ExpenseUpdate'
+} as const;
+
 export const ExpensesPublicSchema = {
     properties: {
         data: {

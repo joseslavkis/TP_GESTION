@@ -1,9 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Trash2 } from "lucide-react"
+import { useState } from "react"
 
-import { type ExpensePublic, GroupsService } from "@/client";
-import { Button } from "@/components/ui/button";
+import { type ExpensePublic, GroupsService } from "@/client"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogClose,
@@ -13,15 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { LoadingButton } from "@/components/ui/loading-button";
-import useCustomToast from "@/hooks/useCustomToast";
-import { handleError } from "@/utils";
+} from "@/components/ui/dialog"
+import { LoadingButton } from "@/components/ui/loading-button"
+import useCustomToast from "@/hooks/useCustomToast"
+import { handleError } from "@/utils"
 
 interface DeleteExpenseDialogProps {
-  groupId: string;
-  expense: ExpensePublic;
-  disabled?: boolean;
+  groupId: string
+  expense: ExpensePublic
+  disabled?: boolean
 }
 
 export function DeleteExpenseDialog({
@@ -29,9 +29,9 @@ export function DeleteExpenseDialog({
   expense,
   disabled = false,
 }: DeleteExpenseDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [isOpen, setIsOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -40,17 +40,17 @@ export function DeleteExpenseDialog({
         expenseId: expense.id,
       }),
     onSuccess: () => {
-      showSuccessToast("Gasto eliminado");
-      setIsOpen(false);
+      showSuccessToast("Gasto eliminado")
+      setIsOpen(false)
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["group-expenses", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["group-expenses", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] })
     },
-  });
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -83,5 +83,5 @@ export function DeleteExpenseDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

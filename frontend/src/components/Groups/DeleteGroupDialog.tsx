@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
+import { Trash2 } from "lucide-react"
+import { useState } from "react"
 
-import { GroupsService } from "@/client";
-import { Button } from "@/components/ui/button";
+import { GroupsService } from "@/client"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogClose,
@@ -14,34 +14,34 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { LoadingButton } from "@/components/ui/loading-button";
-import useCustomToast from "@/hooks/useCustomToast";
-import { handleError } from "@/utils";
+} from "@/components/ui/dialog"
+import { LoadingButton } from "@/components/ui/loading-button"
+import useCustomToast from "@/hooks/useCustomToast"
+import { handleError } from "@/utils"
 
 interface DeleteGroupDialogProps {
-  groupId: string;
+  groupId: string
 }
 
 export function DeleteGroupDialog({ groupId }: DeleteGroupDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [isOpen, setIsOpen] = useState(false)
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
 
   const mutation = useMutation({
     mutationFn: () => GroupsService.deleteGroup({ groupId }),
     onSuccess: () => {
-      showSuccessToast("Grupo eliminado");
-      setIsOpen(false);
-      navigate({ to: "/groups" });
+      showSuccessToast("Grupo eliminado")
+      setIsOpen(false)
+      navigate({ to: "/groups" })
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] })
     },
-  });
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -74,5 +74,5 @@ export function DeleteGroupDialog({ groupId }: DeleteGroupDialogProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

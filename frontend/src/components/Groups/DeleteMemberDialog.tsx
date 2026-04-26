@@ -1,9 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserMinus } from "lucide-react";
-import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { UserMinus } from "lucide-react"
+import { useState } from "react"
 
-import { type GroupMemberPublic, GroupsService } from "@/client";
-import { Button } from "@/components/ui/button";
+import { type GroupMemberPublic, GroupsService } from "@/client"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogClose,
@@ -13,27 +13,27 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { LoadingButton } from "@/components/ui/loading-button";
-import useCustomToast from "@/hooks/useCustomToast";
-import { handleError } from "@/utils";
+} from "@/components/ui/dialog"
+import { LoadingButton } from "@/components/ui/loading-button"
+import useCustomToast from "@/hooks/useCustomToast"
+import { handleError } from "@/utils"
 
 interface DeleteMemberDialogProps {
-  groupId: string;
-  member: GroupMemberPublic;
+  groupId: string
+  member: GroupMemberPublic
 }
 
 function memberLabel(member: GroupMemberPublic) {
-  return member.full_name || member.email;
+  return member.full_name || member.email
 }
 
 export function DeleteMemberDialog({
   groupId,
   member,
 }: DeleteMemberDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [isOpen, setIsOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -42,15 +42,15 @@ export function DeleteMemberDialog({
         userId: member.user_id,
       }),
     onSuccess: () => {
-      showSuccessToast("Participante quitado");
-      setIsOpen(false);
+      showSuccessToast("Participante quitado")
+      setIsOpen(false)
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
     },
-  });
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -83,5 +83,5 @@ export function DeleteMemberDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
