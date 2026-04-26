@@ -846,3 +846,169 @@ def test_create_expense_rejects_invalid_members_and_custom_participants(
         headers=second_user_headers,
     )
     assert second_user_group_response.status_code == 200
+
+
+def test_update_expense_recalculates_balances(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, second_user_id = _add_member_directly(db, group_id)
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+
+    create_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Cena",
+            "amount": 100,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert create_response.status_code == 200
+    expense = create_response.json()
+
+    update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense['id']}",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Cena actualizada",
+            "amount": 120,
+            "payer_id": owner["id"],
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": owner["id"], "amount": 20},
+                {"user_id": str(second_user_id), "amount": 100},
+            ],
+        },
+    )
+    assert update_response.status_code == 200
+    updated_expense = update_response.json()
+    assert updated_expense["description"] == "Cena actualizada"
+    assert sorted(
+        participant["amount_owed"] for participant in updated_expense["participants"]
+    ) == [20.0, 100.0]
+
+    owner_groups = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+    )
+    assert owner_groups.status_code == 200
+    owner_group = next(
+        item for item in owner_groups.json()["data"] if item["id"] == group["id"]
+    )
+    assert owner_group["current_user_balance"] == 100.0
+
+    second_user_groups = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=second_user_headers,
+    )
+    assert second_user_groups.status_code == 200
+    second_group = next(
+        item
+        for item in second_user_groups.json()["data"]
+        if item["id"] == group["id"]
+    )
+    assert second_group["current_user_balance"] == -100.0
+
+
+def test_delete_expense_reverts_balances(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, _ = _add_member_directly(db, group_id)
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+
+    create_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Super",
+            "amount": 100,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert create_response.status_code == 200
+    expense_id = create_response.json()["id"]
+
+    delete_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=normal_user_token_headers,
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["message"] == "Expense deleted successfully"
+
+    owner_groups = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+    )
+    assert owner_groups.status_code == 200
+    owner_group = next(
+        item for item in owner_groups.json()["data"] if item["id"] == group["id"]
+    )
+    assert owner_group["current_user_balance"] == 0.0
+
+    second_user_groups = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=second_user_headers,
+    )
+    assert second_user_groups.status_code == 200
+    second_group = next(
+        item
+        for item in second_user_groups.json()["data"]
+        if item["id"] == group["id"]
+    )
+    assert second_group["current_user_balance"] == 0.0
+
+
+def test_update_and_delete_expense_require_payer_or_admin(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, _ = _add_member_directly(db, group_id)
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+
+    create_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Internet",
+            "amount": 100,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert create_response.status_code == 200
+    expense_id = create_response.json()["id"]
+
+    unauthorized_update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=second_user_headers,
+        json={"description": "Internet 2"},
+    )
+    assert unauthorized_update_response.status_code == 403
+
+    unauthorized_delete_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=second_user_headers,
+    )
+    assert unauthorized_delete_response.status_code == 403
