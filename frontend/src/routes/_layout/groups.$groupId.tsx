@@ -15,6 +15,7 @@ import { DeleteExpenseDialog } from "@/components/Groups/DeleteExpenseDialog";
 import { DeleteGroupDialog } from "@/components/Groups/DeleteGroupDialog";
 import { DeleteMemberDialog } from "@/components/Groups/DeleteMemberDialog";
 import { EditGroupDialog } from "@/components/Groups/EditGroupDialog";
+import { GroupIcon } from "@/components/Groups/GroupIcon";
 import { ModifyExpenseDialog } from "@/components/Groups/ModifyExpenseDialog";
 import { RegisterSettlementPaymentDialog } from "@/components/Groups/RegisterSettlementPaymentDialog";
 import { Badge } from "@/components/ui/badge";
@@ -135,6 +136,11 @@ function GroupDetailPage() {
     });
   }, [expenses, payerFilter, search]);
 
+  const totalExpenses = useMemo(
+    () => expenses.reduce((total, expense) => total + expense.amount, 0),
+    [expenses],
+  );
+
   const membersById = useMemo(() => {
     return new Map(group?.members.map((member) => [member.user_id, member]));
   }, [group?.members]);
@@ -169,22 +175,28 @@ function GroupDetailPage() {
           </RouterLink>
         </Button>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight">
-                {group.name}
-              </h1>
-              <Badge
-                variant={
-                  group.current_user_balance < 0 ? "destructive" : "secondary"
-                }
-              >
-                {formatCurrency(group.current_user_balance)}
-              </Badge>
+          <div className="flex items-start gap-3">
+            <GroupIcon name={group.name} />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {group.name}
+                </h1>
+                <Badge
+                  variant={
+                    group.current_user_balance < 0 ? "destructive" : "secondary"
+                  }
+                >
+                  {formatCurrency(group.current_user_balance)}
+                </Badge>
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                {group.description || "Sin descripcion"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Total del grupo: {formatCurrency(totalExpenses)}
+              </p>
             </div>
-            <p className="mt-1 text-muted-foreground">
-              {group.description || "Sin descripcion"}
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <AddExpenseDialog
