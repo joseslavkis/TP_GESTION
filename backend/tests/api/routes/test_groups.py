@@ -1012,3 +1012,104 @@ def test_update_and_delete_expense_require_payer_or_admin(
         headers=second_user_headers,
     )
     assert unauthorized_delete_response.status_code == 403
+
+
+def test_delete_expense_with_removed_historical_member_succeeds(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    second_user = create_random_user(db)
+
+    add_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert add_member_response.status_code == 200
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
+    )
+
+    # Expense with only second user as participant keeps balances at zero,
+    # allowing member removal while preserving historical references.
+    create_expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=second_user_headers,
+        json={
+            "description": "Gasto historico",
+            "amount": 100,
+            "payer_id": str(second_user.id),
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": str(second_user.id), "amount": 100},
+            ],
+        },
+    )
+    assert create_expense_response.status_code == 200
+    expense_id = create_expense_response.json()["id"]
+
+    remove_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{second_user.id}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_member_response.status_code == 200
+
+    delete_expense_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=normal_user_token_headers,
+    )
+    assert delete_expense_response.status_code == 200
+    assert delete_expense_response.json()["message"] == "Expense deleted successfully"
+
+
+def test_update_expense_with_removed_historical_member_succeeds(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    second_user = create_random_user(db)
+
+    add_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert add_member_response.status_code == 200
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
+    )
+
+    create_expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=second_user_headers,
+        json={
+            "description": "Gasto historico",
+            "amount": 100,
+            "payer_id": str(second_user.id),
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": str(second_user.id), "amount": 100},
+            ],
+        },
+    )
+    assert create_expense_response.status_code == 200
+    expense_id = create_expense_response.json()["id"]
+
+    remove_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{second_user.id}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_member_response.status_code == 200
+
+    update_expense_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Gasto historico editado",
+            "amount": 120,
+        },
+    )
+    assert update_expense_response.status_code == 200
+    assert update_expense_response.json()["description"] == "Gasto historico editado"
+    assert update_expense_response.json()["amount"] == 120

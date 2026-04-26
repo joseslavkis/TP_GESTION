@@ -11,10 +11,11 @@ import {
 } from "@/client";
 import { AddExpenseDialog } from "@/components/Groups/AddExpenseDialog";
 import { AddMemberDialog } from "@/components/Groups/AddMemberDialog";
+import { DeleteExpenseDialog } from "@/components/Groups/DeleteExpenseDialog";
 import { DeleteGroupDialog } from "@/components/Groups/DeleteGroupDialog";
 import { DeleteMemberDialog } from "@/components/Groups/DeleteMemberDialog";
-import { DeleteOrModifyExpenseDialog } from "@/components/Groups/DeleteOrModifyExpenseDialog";
 import { EditGroupDialog } from "@/components/Groups/EditGroupDialog";
+import { ModifyExpenseDialog } from "@/components/Groups/ModifyExpenseDialog";
 import { RegisterSettlementPaymentDialog } from "@/components/Groups/RegisterSettlementPaymentDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import useAuth from "@/hooks/useAuth";
-import useCustomToast from "@/hooks/useCustomToast";
 
 export const Route = createFileRoute("/_layout/groups/$groupId")({
   component: GroupDetailPage,
@@ -99,7 +99,6 @@ function buildSettlement(members: GroupMemberPublic[]) {
 function GroupDetailPage() {
   const { groupId } = Route.useParams();
   const { user: currentUser } = useAuth();
-  const { showErrorToast } = useCustomToast();
   const [search, setSearch] = useState("");
   const [payerFilter, setPayerFilter] = useState("all");
 
@@ -140,14 +139,6 @@ function GroupDetailPage() {
     return new Map(group?.members.map((member) => [member.user_id, member]));
   }, [group?.members]);
   const settlementPayments = group?.settlement_payments ?? [];
-
-  const onModifyExpense = () => {
-    showErrorToast("Modificar gastos aun no esta disponible");
-  };
-
-  const onDeleteExpense = () => {
-    showErrorToast("Eliminar gastos aun no esta disponible");
-  };
 
   if (groupQuery.isLoading) {
     return (
@@ -368,9 +359,8 @@ function GroupDetailPage() {
               key={expense.id}
               expense={expense}
               membersById={membersById}
-              canManage={isAdmin}
-              onModifyExpense={onModifyExpense}
-              onDeleteExpense={onDeleteExpense}
+              groupId={groupId}
+              canManage={isAdmin || expense.payer_id === currentUser?.id}
             />
           ))}
           {!expensesQuery.isLoading && filteredExpenses.length === 0 ? (
@@ -417,15 +407,13 @@ function SettlementPaymentRow({
 function ExpenseRow({
   expense,
   membersById,
+  groupId,
   canManage,
-  onModifyExpense,
-  onDeleteExpense,
 }: {
   expense: ExpensePublic;
   membersById: Map<string, GroupMemberPublic>;
+  groupId: string;
   canManage: boolean;
-  onModifyExpense: (expense: ExpensePublic) => void;
-  onDeleteExpense: (expense: ExpensePublic) => void;
 }) {
   const payer = membersById.get(expense.payer_id);
 
@@ -442,11 +430,14 @@ function ExpenseRow({
       </div>
       <div className="flex items-center justify-between gap-2 text-left md:justify-end md:text-right">
         {canManage ? (
-          <DeleteOrModifyExpenseDialog
-            expense={expense}
-            onModify={onModifyExpense}
-            onDelete={onDeleteExpense}
-          />
+          <div className="flex items-center gap-1">
+            <ModifyExpenseDialog
+              groupId={groupId}
+              expense={expense}
+              members={Array.from(membersById.values())}
+            />
+            <DeleteExpenseDialog groupId={groupId} expense={expense} />
+          </div>
         ) : null}
         <div>
           <p className="font-semibold">{formatCurrency(expense.amount)}</p>

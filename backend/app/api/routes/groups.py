@@ -789,12 +789,13 @@ def update_expense(
         group_members_map = {member.user_id: member for member in locked_members}
 
         old_payer_share = old_amounts_owed.get(expense.payer_id, 0.0)
-        group_members_map[expense.payer_id].balance = _round_currency(
-            group_members_map[expense.payer_id].balance
-            - (_round_currency(expense.amount) - old_payer_share)
-        )
+        if expense.payer_id in group_members_map:
+            group_members_map[expense.payer_id].balance = _round_currency(
+                group_members_map[expense.payer_id].balance
+                - (_round_currency(expense.amount) - old_payer_share)
+            )
         for user_id, amount_owed in old_amounts_owed.items():
-            if user_id != expense.payer_id:
+            if user_id != expense.payer_id and user_id in group_members_map:
                 group_members_map[user_id].balance = _round_currency(
                     group_members_map[user_id].balance + amount_owed
                 )
@@ -899,12 +900,13 @@ def delete_expense(
         group_members_map = {member.user_id: member for member in locked_members}
 
         old_payer_share = old_amounts_owed.get(expense.payer_id, 0.0)
-        group_members_map[expense.payer_id].balance = _round_currency(
-            group_members_map[expense.payer_id].balance
-            - (_round_currency(expense.amount) - old_payer_share)
-        )
+        if expense.payer_id in group_members_map:
+            group_members_map[expense.payer_id].balance = _round_currency(
+                group_members_map[expense.payer_id].balance
+                - (_round_currency(expense.amount) - old_payer_share)
+            )
         for user_id, amount_owed in old_amounts_owed.items():
-            if user_id != expense.payer_id:
+            if user_id != expense.payer_id and user_id in group_members_map:
                 group_members_map[user_id].balance = _round_currency(
                     group_members_map[user_id].balance + amount_owed
                 )
