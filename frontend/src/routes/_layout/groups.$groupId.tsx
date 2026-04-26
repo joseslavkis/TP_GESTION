@@ -1,42 +1,33 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  createFileRoute,
-  Link as RouterLink,
-  useNavigate,
-} from "@tanstack/react-router"
-import {
-  ArrowLeft,
-  CircleDollarSign,
-  Search,
-  Trash2,
-  UserMinus,
-  Users,
-} from "lucide-react"
-import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
+import { ArrowLeft, CircleDollarSign, Search, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import {
   type ExpensePublic,
   type GroupMemberPublic,
   GroupsService,
   type SettlementPaymentPublic,
-} from "@/client"
-import { AddExpenseDialog } from "@/components/Groups/AddExpenseDialog"
-import { AddMemberDialog } from "@/components/Groups/AddMemberDialog"
-import { EditGroupDialog } from "@/components/Groups/EditGroupDialog"
-import { RegisterSettlementPaymentDialog } from "@/components/Groups/RegisterSettlementPaymentDialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+} from "@/client";
+import { AddExpenseDialog } from "@/components/Groups/AddExpenseDialog";
+import { AddMemberDialog } from "@/components/Groups/AddMemberDialog";
+import { DeleteGroupDialog } from "@/components/Groups/DeleteGroupDialog";
+import { DeleteMemberDialog } from "@/components/Groups/DeleteMemberDialog";
+import { DeleteOrModifyExpenseDialog } from "@/components/Groups/DeleteOrModifyExpenseDialog";
+import { EditGroupDialog } from "@/components/Groups/EditGroupDialog";
+import { RegisterSettlementPaymentDialog } from "@/components/Groups/RegisterSettlementPaymentDialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import useAuth from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
+} from "@/components/ui/select";
+import useAuth from "@/hooks/useAuth";
+import useCustomToast from "@/hooks/useCustomToast";
 
 export const Route = createFileRoute("/_layout/groups/$groupId")({
   component: GroupDetailPage,
@@ -47,15 +38,15 @@ export const Route = createFileRoute("/_layout/groups/$groupId")({
       },
     ],
   }),
-})
+});
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
-})
+});
 
 function formatCurrency(value: number) {
-  return currencyFormatter.format(value)
+  return currencyFormatter.format(value);
 }
 
 function formatDate(value: string) {
@@ -63,139 +54,107 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 function memberLabel(member?: GroupMemberPublic) {
-  if (!member) return "Integrante"
-  return member.full_name || member.email
+  if (!member) return "Integrante";
+  return member.full_name || member.email;
 }
 
 function buildSettlement(members: GroupMemberPublic[]) {
   const creditors = members
     .filter((member) => member.balance > 0.01)
-    .map((member) => ({ ...member, pending: member.balance }))
+    .map((member) => ({ ...member, pending: member.balance }));
   const debtors = members
     .filter((member) => member.balance < -0.01)
-    .map((member) => ({ ...member, pending: Math.abs(member.balance) }))
+    .map((member) => ({ ...member, pending: Math.abs(member.balance) }));
   const transfers: Array<{
-    from: GroupMemberPublic
-    to: GroupMemberPublic
-    amount: number
-  }> = []
+    from: GroupMemberPublic;
+    to: GroupMemberPublic;
+    amount: number;
+  }> = [];
 
-  let creditorIndex = 0
-  let debtorIndex = 0
+  let creditorIndex = 0;
+  let debtorIndex = 0;
   while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
-    const creditor = creditors[creditorIndex]
-    const debtor = debtors[debtorIndex]
-    const amount = Math.min(creditor.pending, debtor.pending)
+    const creditor = creditors[creditorIndex];
+    const debtor = debtors[debtorIndex];
+    const amount = Math.min(creditor.pending, debtor.pending);
 
     if (amount > 0.01) {
-      transfers.push({ from: debtor, to: creditor, amount })
+      transfers.push({ from: debtor, to: creditor, amount });
     }
 
-    creditor.pending = Number((creditor.pending - amount).toFixed(2))
-    debtor.pending = Number((debtor.pending - amount).toFixed(2))
+    creditor.pending = Number((creditor.pending - amount).toFixed(2));
+    debtor.pending = Number((debtor.pending - amount).toFixed(2));
 
-    if (creditor.pending <= 0.01) creditorIndex += 1
-    if (debtor.pending <= 0.01) debtorIndex += 1
+    if (creditor.pending <= 0.01) creditorIndex += 1;
+    if (debtor.pending <= 0.01) debtorIndex += 1;
   }
 
-  return transfers
+  return transfers;
 }
 
 function GroupDetailPage() {
-  const { groupId } = Route.useParams()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { user: currentUser } = useAuth()
-  const { showSuccessToast, showErrorToast } = useCustomToast()
-  const [search, setSearch] = useState("")
-  const [payerFilter, setPayerFilter] = useState("all")
+  const { groupId } = Route.useParams();
+  const { user: currentUser } = useAuth();
+  const { showErrorToast } = useCustomToast();
+  const [search, setSearch] = useState("");
+  const [payerFilter, setPayerFilter] = useState("all");
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
     queryFn: () => GroupsService.readGroup({ groupId }),
-  })
+  });
   const expensesQuery = useQuery({
     queryKey: ["group-expenses", groupId],
     queryFn: () =>
       GroupsService.listGroupExpenses({ groupId, skip: 0, limit: 100 }),
-  })
+  });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => GroupsService.deleteGroup({ groupId }),
-    onSuccess: () => {
-      showSuccessToast("Grupo eliminado")
-      navigate({ to: "/groups" })
-    },
-    onError: handleError.bind(showErrorToast),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] })
-    },
-  })
-
-  const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) =>
-      GroupsService.removeGroupMember({ groupId, userId }),
-    onSuccess: () => {
-      showSuccessToast("Participante quitado")
-    },
-    onError: handleError.bind(showErrorToast),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
-    },
-  })
-
-  const group = groupQuery.data
-  const expenses = expensesQuery.data?.data ?? []
+  const group = groupQuery.data;
+  const expenses = expensesQuery.data?.data ?? [];
   const isAdmin =
     group?.members.some(
       (member) => member.user_id === currentUser?.id && member.is_admin,
-    ) ?? false
+    ) ?? false;
   const settlement = useMemo(
     () => buildSettlement(group?.members ?? []),
     [group?.members],
-  )
+  );
 
   const filteredExpenses = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
+    const normalizedSearch = search.trim().toLowerCase();
     return expenses.filter((expense) => {
       const matchesSearch =
         !normalizedSearch ||
-        expense.description.toLowerCase().includes(normalizedSearch)
+        expense.description.toLowerCase().includes(normalizedSearch);
       const matchesPayer =
-        payerFilter === "all" || expense.payer_id === payerFilter
-      return matchesSearch && matchesPayer
-    })
-  }, [expenses, payerFilter, search])
+        payerFilter === "all" || expense.payer_id === payerFilter;
+      return matchesSearch && matchesPayer;
+    });
+  }, [expenses, payerFilter, search]);
 
   const membersById = useMemo(() => {
-    return new Map(group?.members.map((member) => [member.user_id, member]))
-  }, [group?.members])
-  const settlementPayments = group?.settlement_payments ?? []
+    return new Map(group?.members.map((member) => [member.user_id, member]));
+  }, [group?.members]);
+  const settlementPayments = group?.settlement_payments ?? [];
 
-  const onDeleteGroup = () => {
-    if (window.confirm("Eliminar este grupo y todos sus gastos?")) {
-      deleteMutation.mutate()
-    }
-  }
+  const onModifyExpense = () => {
+    showErrorToast("Modificar gastos aun no esta disponible");
+  };
 
-  const onRemoveMember = (member: GroupMemberPublic) => {
-    if (window.confirm(`Quitar a ${memberLabel(member)} del grupo?`)) {
-      removeMemberMutation.mutate(member.user_id)
-    }
-  }
+  const onDeleteExpense = () => {
+    showErrorToast("Eliminar gastos aun no esta disponible");
+  };
 
   if (groupQuery.isLoading) {
     return (
       <div className="rounded-lg border bg-card p-8 text-sm text-muted-foreground">
         Cargando grupo...
       </div>
-    )
+    );
   }
 
   if (!group) {
@@ -206,7 +165,7 @@ function GroupDetailPage() {
           <RouterLink to="/groups">Volver a grupos</RouterLink>
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -246,15 +205,7 @@ function GroupDetailPage() {
               <>
                 <AddMemberDialog groupId={group.id} />
                 <EditGroupDialog group={group} />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onDeleteGroup}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 />
-                  Eliminar
-                </Button>
+                <DeleteGroupDialog groupId={group.id} />
               </>
             ) : null}
           </div>
@@ -298,15 +249,7 @@ function GroupDetailPage() {
                     {formatCurrency(member.balance)}
                   </Badge>
                   {isAdmin && member.user_id !== currentUser?.id ? (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onRemoveMember(member)}
-                      disabled={removeMemberMutation.isPending}
-                    >
-                      <UserMinus />
-                      <span className="sr-only">Quitar participante</span>
-                    </Button>
+                    <DeleteMemberDialog groupId={group.id} member={member} />
                   ) : null}
                 </div>
               </div>
@@ -425,6 +368,9 @@ function GroupDetailPage() {
               key={expense.id}
               expense={expense}
               membersById={membersById}
+              canManage={isAdmin}
+              onModifyExpense={onModifyExpense}
+              onDeleteExpense={onDeleteExpense}
             />
           ))}
           {!expensesQuery.isLoading && filteredExpenses.length === 0 ? (
@@ -440,18 +386,18 @@ function GroupDetailPage() {
         </div>
       </section>
     </div>
-  )
+  );
 }
 
 function SettlementPaymentRow({
   payment,
   membersById,
 }: {
-  payment: SettlementPaymentPublic
-  membersById: Map<string, GroupMemberPublic>
+  payment: SettlementPaymentPublic;
+  membersById: Map<string, GroupMemberPublic>;
 }) {
-  const debtor = membersById.get(payment.from_user_id)
-  const creditor = membersById.get(payment.to_user_id)
+  const debtor = membersById.get(payment.from_user_id);
+  const creditor = membersById.get(payment.to_user_id);
 
   return (
     <div className="grid gap-2 p-4 md:grid-cols-[1fr_auto] md:items-center">
@@ -465,17 +411,23 @@ function SettlementPaymentRow({
       </div>
       <p className="font-semibold">{formatCurrency(payment.amount)}</p>
     </div>
-  )
+  );
 }
 
 function ExpenseRow({
   expense,
   membersById,
+  canManage,
+  onModifyExpense,
+  onDeleteExpense,
 }: {
-  expense: ExpensePublic
-  membersById: Map<string, GroupMemberPublic>
+  expense: ExpensePublic;
+  membersById: Map<string, GroupMemberPublic>;
+  canManage: boolean;
+  onModifyExpense: (expense: ExpensePublic) => void;
+  onDeleteExpense: (expense: ExpensePublic) => void;
 }) {
-  const payer = membersById.get(expense.payer_id)
+  const payer = membersById.get(expense.payer_id);
 
   return (
     <div className="grid gap-3 p-4 md:grid-cols-[1fr_auto] md:items-center">
@@ -488,10 +440,19 @@ function ExpenseRow({
           Pago {memberLabel(payer)} el {formatDate(expense.created_at)}
         </p>
       </div>
-      <div className="text-left md:text-right">
-        <p className="font-semibold">{formatCurrency(expense.amount)}</p>
-        <p className="text-sm text-muted-foreground">Total del comprobante</p>
+      <div className="flex items-center justify-between gap-2 text-left md:justify-end md:text-right">
+        {canManage ? (
+          <DeleteOrModifyExpenseDialog
+            expense={expense}
+            onModify={onModifyExpense}
+            onDelete={onDeleteExpense}
+          />
+        ) : null}
+        <div>
+          <p className="font-semibold">{formatCurrency(expense.amount)}</p>
+          <p className="text-sm text-muted-foreground">Total del comprobante</p>
+        </div>
       </div>
     </div>
-  )
+  );
 }

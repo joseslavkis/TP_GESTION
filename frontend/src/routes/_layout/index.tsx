@@ -1,28 +1,29 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   Link as RouterLink,
   useNavigate,
-} from "@tanstack/react-router"
+} from "@tanstack/react-router";
 import {
   ArrowRight,
   CircleDollarSign,
   Receipt,
   Users,
   Wallet,
-} from "lucide-react"
+} from "lucide-react";
 
-import { GroupsService } from "@/client"
-import { AddGroupDialog } from "@/components/Groups/AddGroupDialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { GroupsService } from "@/client";
+import { AddGroupDialog } from "@/components/Groups/AddGroupDialog";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import useAuth from "@/hooks/useAuth"
+} from "@/components/ui/card";
+import useAuth from "@/hooks/useAuth";
+import { formatCurrency } from "@/utils/currency";
+import { GroupCard } from "@/components/Groups/GroupCard";
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -33,44 +34,35 @@ export const Route = createFileRoute("/_layout/")({
       },
     ],
   }),
-})
-
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-})
-
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value)
-}
+});
 
 function Dashboard() {
-  const navigate = useNavigate()
-  const { user: currentUser } = useAuth()
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const groupsQuery = useQuery({
     queryKey: ["groups"],
     queryFn: () => GroupsService.listUserGroups({ skip: 0, limit: 100 }),
-  })
+  });
   const expensesQuery = useQuery({
     queryKey: ["dashboard-expenses"],
     queryFn: () =>
       GroupsService.listCurrentUserGroupExpenses({ skip: 0, limit: 100 }),
-  })
+  });
 
-  const groups = groupsQuery.data?.data ?? []
-  const expenses = expensesQuery.data?.data ?? []
+  const groups = groupsQuery.data?.data ?? [];
+  const expenses = expensesQuery.data?.data ?? [];
   const balance = groups.reduce(
     (total, group) => total + group.current_user_balance,
     0,
-  )
+  );
   const toReceive = groups.reduce(
     (total, group) => total + Math.max(group.current_user_balance, 0),
     0,
-  )
+  );
   const toPay = groups.reduce(
     (total, group) => total + Math.abs(Math.min(group.current_user_balance, 0)),
     0,
-  )
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,28 +137,9 @@ function Dashboard() {
               </RouterLink>
             </Button>
           </div>
-          <div className="divide-y">
+          <div className="max-h-96 divide-y overflow-y-auto">
             {groups.slice(0, 5).map((group) => (
-              <RouterLink
-                key={group.id}
-                to="/groups/$groupId"
-                params={{ groupId: group.id }}
-                className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-accent"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{group.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {group.description || "Sin descripcion"}
-                  </p>
-                </div>
-                <Badge
-                  variant={
-                    group.current_user_balance < 0 ? "destructive" : "secondary"
-                  }
-                >
-                  {formatCurrency(group.current_user_balance)}
-                </Badge>
-              </RouterLink>
+              <GroupCard key={group.id} groupPublic={group} />
             ))}
             {groups.length === 0 ? (
               <div className="p-6 text-sm text-muted-foreground">
@@ -219,5 +192,5 @@ function Dashboard() {
         </section>
       </div>
     </div>
-  )
+  );
 }
