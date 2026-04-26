@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, time, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -705,12 +706,19 @@ def create_settlement_payment(
                 detail="Payment amount exceeds the receiver's pending credit",
             )
 
-        payment = SettlementPayment(
-            group_id=group_id,
-            from_user_id=payment_in.from_user_id,
-            to_user_id=payment_in.to_user_id,
-            amount=Decimal(payment_amount),
-        )
+        payment_data: dict[str, Any] = {
+            "group_id": group_id,
+            "from_user_id": payment_in.from_user_id,
+            "to_user_id": payment_in.to_user_id,
+            "amount": Decimal(payment_amount),
+        }
+        if payment_in.payment_date:
+            # Persist selected dates at noon UTC so local date rendering stays stable.
+            payment_data["created_at"] = datetime.combine(
+                payment_in.payment_date, time(hour=12), timezone.utc
+            )
+
+        payment = SettlementPayment(**payment_data)
         session.add(payment)
 
         debtor_member.balance = _round_currency(debtor_member.balance + payment_amount)

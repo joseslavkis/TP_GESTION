@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
@@ -263,6 +263,7 @@ class SettlementPayment(SettlementPaymentBase, table=True):
 class SettlementPaymentCreate(SettlementPaymentBase):
     from_user_id: uuid.UUID
     to_user_id: uuid.UUID
+    payment_date: date | None = None
 
 
 class SettlementPaymentPublic(SQLModel):

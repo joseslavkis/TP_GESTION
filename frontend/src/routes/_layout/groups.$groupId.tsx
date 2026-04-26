@@ -66,16 +66,6 @@ function formatDate(value: string) {
   })
 }
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
 function memberLabel(member?: GroupMemberPublic) {
   if (!member) return "Integrante"
   return member.full_name || member.email
@@ -470,7 +460,7 @@ function SettlementPaymentRow({
           {memberLabel(debtor)} pago a {memberLabel(creditor)}
         </p>
         <p className="text-sm text-muted-foreground">
-          Registrado el {formatDateTime(payment.created_at)}
+          Registrado el {formatDate(payment.created_at)}
         </p>
       </div>
       <p className="font-semibold">{formatCurrency(payment.amount)}</p>

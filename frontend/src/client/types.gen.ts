@@ -138,6 +138,7 @@ export type SettlementPaymentCreate = {
     amount: (number | string);
     from_user_id: string;
     to_user_id: string;
+    payment_date?: (string | null);
 };
 
 export type SettlementPaymentPublic = {

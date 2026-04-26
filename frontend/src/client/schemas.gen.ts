@@ -644,6 +644,18 @@ export const SettlementPaymentCreateSchema = {
             type: 'string',
             format: 'uuid',
             title: 'To User Id'
+        },
+        payment_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Payment Date'
         }
     },
     type: 'object',

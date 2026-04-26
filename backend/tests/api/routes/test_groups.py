@@ -466,6 +466,54 @@ def test_create_settlement_payment_supports_partial_and_total_payments(
     assert debtor_group_detail_response.json()["current_user_balance"] == 0.0
 
 
+def test_create_settlement_payment_supports_manual_payment_date(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    creditor = _get_current_user(client, normal_user_token_headers)
+    debtor_email, debtor_id = _add_member_directly(db, group_id)
+
+    expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Supermercado",
+            "amount": 100,
+            "payer_id": creditor["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert expense_response.status_code == 200
+
+    debtor_headers = authentication_token_from_email(
+        client=client, email=debtor_email, db=db
+    )
+
+    payment_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/settlement-payments",
+        headers=debtor_headers,
+        json={
+            "from_user_id": str(debtor_id),
+            "to_user_id": creditor["id"],
+            "amount": 20,
+            "payment_date": "2026-04-10",
+        },
+    )
+    assert payment_response.status_code == 200
+    payment = payment_response.json()
+    assert payment["created_at"].startswith("2026-04-10T12:00:00")
+
+    group_detail_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}", headers=debtor_headers
+    )
+    assert group_detail_response.status_code == 200
+    assert group_detail_response.json()["settlement_payments"][0][
+        "created_at"
+    ].startswith("2026-04-10T12:00:00")
+
+
 def test_create_settlement_payment_validates_relation_amount_and_actor(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
