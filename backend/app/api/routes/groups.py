@@ -718,68 +718,14 @@ def update_expense(
             detail="Only payer or group admins can modify this expense",
         )
 
-    existing_participants = session.exec(
-        select(ExpenseParticipant).where(ExpenseParticipant.expense_id == expense_id)
-    ).all()
-
-    member_ids_query = select(GroupMember.user_id).where(
-        GroupMember.group_id == group_id
-    )
-    group_member_ids = set(session.exec(member_ids_query).all())
-
-    if current_user.id not in group_member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a member of this group",
-        )
-
-    effective_description = expense_in.description or expense.description
-    effective_amount = (
-        _round_currency(expense_in.amount)
-        if expense_in.amount is not None
-        else _round_currency(expense.amount)
-    )
-    effective_payer_id = expense_in.payer_id or expense.payer_id
-
-    if effective_payer_id not in group_member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payer is not a member of this group",
-        )
-
-    if expense_in.division_mode is not None:
-        effective_division_mode = expense_in.division_mode
-    elif expense_in.participants is not None:
-        effective_division_mode = "custom"
-    else:
-        effective_division_mode = _infer_division_mode(
-            existing_participants,
-            group_member_ids,
-        )
-
-    if expense_in.participants is not None:
-        effective_participants = expense_in.participants
-    else:
-        effective_participants = [
-            ExpenseParticipantIn(
-                user_id=participant.user_id,
-                amount=participant.amount_owed,
-            )
-            for participant in existing_participants
-        ]
-
-    new_amounts_owed = _compute_amounts_owed(
-        amount=effective_amount,
-        division_mode=effective_division_mode,
-        participants_in=effective_participants,
-        group_member_ids=group_member_ids,
-    )
-    old_amounts_owed = {
-        participant.user_id: _round_currency(participant.amount_owed)
-        for participant in existing_participants
-    }
-
     try:
+        # ------------------------------------------------------------------ #
+        # Acquire row-level locks on all group members FIRST, before reading  #
+        # any data that feeds into balance arithmetic. Every subsequent read   #
+        # of membership or participant state is now inside this lock scope,    #
+        # so no concurrent writer can mutate either between our reads and our  #
+        # writes.                                                              #
+        # ------------------------------------------------------------------ #
         locked_members = session.exec(
             select(GroupMember)
             .where(GroupMember.group_id == group_id)
@@ -787,7 +733,86 @@ def update_expense(
             .with_for_update()
         ).all()
         group_members_map = {member.user_id: member for member in locked_members}
+        group_member_ids = set(group_members_map.keys())
 
+        # Auth checks that depend on membership are now done against the
+        # locked snapshot, so they reflect the committed state at lock time.
+        if current_user.id not in group_member_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of this group",
+            )
+
+        # Read existing participants inside the lock so old_amounts_owed
+        # reflects the same committed state that our balance reversals will
+        # act on — a concurrent update can no longer change these rows
+        # between our read and our write.
+        existing_participants = session.exec(
+            select(ExpenseParticipant).where(ExpenseParticipant.expense_id == expense_id)
+        ).all()
+        old_amounts_owed = {
+            participant.user_id: _round_currency(participant.amount_owed)
+            for participant in existing_participants
+        }
+
+        effective_description = expense_in.description or expense.description
+        effective_amount = (
+            _round_currency(expense_in.amount)
+            if expense_in.amount is not None
+            else _round_currency(expense.amount)
+        )
+        effective_payer_id = expense_in.payer_id or expense.payer_id
+
+        if effective_payer_id not in group_member_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Payer is not a member of this group",
+            )
+
+        if expense_in.division_mode is not None:
+            effective_division_mode = expense_in.division_mode
+        elif expense_in.participants is not None:
+            effective_division_mode = "custom"
+        else:
+            effective_division_mode = _infer_division_mode(
+                existing_participants,
+                group_member_ids,
+            )
+
+        if expense_in.participants is not None:
+            effective_participants = expense_in.participants
+        else:
+            effective_participants = [
+                ExpenseParticipantIn(
+                    user_id=participant.user_id,
+                    amount=participant.amount_owed,
+                )
+                for participant in existing_participants
+            ]
+
+        # _compute_amounts_owed validates participant user_ids against
+        # group_member_ids, which is now the locked snapshot.
+        new_amounts_owed = _compute_amounts_owed(
+            amount=effective_amount,
+            division_mode=effective_division_mode,
+            participants_in=effective_participants,
+            group_member_ids=group_member_ids,
+        )
+
+        # Guard: all previous participants must still be members so the
+        # reversal of old balances is complete and zero-sum is preserved.
+        missing_old = set(old_amounts_owed.keys()) - group_member_ids
+        if missing_old:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Cannot update this expense because one or more original "
+                    "participants have left the group. Delete and recreate the "
+                    "expense to resolve this."
+                ),
+            )
+
+        # --- Reverse old expense impact ---
         old_payer_share = old_amounts_owed.get(expense.payer_id, 0.0)
         if expense.payer_id in group_members_map:
             group_members_map[expense.payer_id].balance = _round_currency(
@@ -795,11 +820,12 @@ def update_expense(
                 - (_round_currency(expense.amount) - old_payer_share)
             )
         for user_id, amount_owed in old_amounts_owed.items():
-            if user_id != expense.payer_id and user_id in group_members_map:
+            if user_id != expense.payer_id:
                 group_members_map[user_id].balance = _round_currency(
                     group_members_map[user_id].balance + amount_owed
                 )
 
+        # --- Apply new expense impact ---
         new_payer_share = new_amounts_owed.get(effective_payer_id, 0.0)
         group_members_map[effective_payer_id].balance = _round_currency(
             group_members_map[effective_payer_id].balance
@@ -831,6 +857,7 @@ def update_expense(
 
         session.commit()
         session.refresh(expense)
+
     except HTTPException:
         session.rollback()
         raise
@@ -885,6 +912,7 @@ def delete_expense(
     existing_participants = session.exec(
         select(ExpenseParticipant).where(ExpenseParticipant.expense_id == expense_id)
     ).all()
+
     old_amounts_owed = {
         participant.user_id: _round_currency(participant.amount_owed)
         for participant in existing_participants
@@ -897,7 +925,24 @@ def delete_expense(
             .order_by(col(GroupMember.user_id))
             .with_for_update()
         ).all()
+
         group_members_map = {member.user_id: member for member in locked_members}
+
+        # Guard: all participants must still be active members so that
+        # every balance adjustment has a corresponding row to update.
+        # If any participant has left, the zero-sum invariant cannot be
+        # restored and we must refuse the deletion.
+        participant_ids = set(old_amounts_owed.keys())
+        missing_member_ids = participant_ids - group_members_map.keys()
+        if missing_member_ids:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Cannot delete this expense because one or more participants "
+                    "have left the group. Settle or adjust the expense manually "
+                    "before deleting it."
+                ),
+            )
 
         old_payer_share = old_amounts_owed.get(expense.payer_id, 0.0)
         if expense.payer_id in group_members_map:
@@ -905,6 +950,7 @@ def delete_expense(
                 group_members_map[expense.payer_id].balance
                 - (_round_currency(expense.amount) - old_payer_share)
             )
+
         for user_id, amount_owed in old_amounts_owed.items():
             if user_id != expense.payer_id and user_id in group_members_map:
                 group_members_map[user_id].balance = _round_currency(
@@ -913,6 +959,7 @@ def delete_expense(
 
         session.delete(expense)
         session.commit()
+
     except HTTPException:
         session.rollback()
         raise
