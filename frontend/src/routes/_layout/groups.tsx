@@ -5,13 +5,12 @@ import {
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
-import { ArrowRight, Search, Users } from "lucide-react"
+import { Search, Users } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { GroupsService } from "@/client"
 import { AddGroupDialog } from "@/components/Groups/AddGroupDialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { GroupCard } from "@/components/Groups/GroupCard"
 import { Input } from "@/components/ui/input"
 
 export const Route = createFileRoute("/_layout/groups")({
@@ -24,15 +23,6 @@ export const Route = createFileRoute("/_layout/groups")({
     ],
   }),
 })
-
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-})
-
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value)
-}
 
 function GroupsPage() {
   const router = useRouterState()
@@ -111,39 +101,7 @@ function GroupsListPage() {
 
       <div className="grid gap-3">
         {filteredGroups.map((group) => (
-          <div
-            key={group.id}
-            className="flex flex-col gap-4 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between"
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-semibold">{group.name}</h2>
-                <Badge
-                  variant={
-                    group.current_user_balance < 0 ? "destructive" : "secondary"
-                  }
-                >
-                  {formatCurrency(group.current_user_balance)}
-                </Badge>
-              </div>
-              <p className="mt-1 truncate text-sm text-muted-foreground">
-                {group.description || "Sin descripcion"}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                navigate({
-                  to: "/groups/$groupId",
-                  params: { groupId: group.id },
-                })
-              }
-            >
-              Abrir
-              <ArrowRight />
-            </Button>
-          </div>
+          <GroupCard key={group.id} groupPublic={group} />
         ))}
       </div>
     </div>

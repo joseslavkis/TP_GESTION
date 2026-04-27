@@ -14,7 +14,7 @@ import {
 
 import { GroupsService } from "@/client"
 import { AddGroupDialog } from "@/components/Groups/AddGroupDialog"
-import { Badge } from "@/components/ui/badge"
+import { GroupCard } from "@/components/Groups/GroupCard"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import useAuth from "@/hooks/useAuth"
+import { formatCurrency } from "@/utils/currency"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -34,15 +35,6 @@ export const Route = createFileRoute("/_layout/")({
     ],
   }),
 })
-
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-})
-
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value)
-}
 
 function Dashboard() {
   const navigate = useNavigate()
@@ -145,28 +137,9 @@ function Dashboard() {
               </RouterLink>
             </Button>
           </div>
-          <div className="divide-y">
+          <div className="max-h-96 divide-y overflow-y-auto">
             {groups.slice(0, 5).map((group) => (
-              <RouterLink
-                key={group.id}
-                to="/groups/$groupId"
-                params={{ groupId: group.id }}
-                className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-accent"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{group.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {group.description || "Sin descripcion"}
-                  </p>
-                </div>
-                <Badge
-                  variant={
-                    group.current_user_balance < 0 ? "destructive" : "secondary"
-                  }
-                >
-                  {formatCurrency(group.current_user_balance)}
-                </Badge>
-              </RouterLink>
+              <GroupCard key={group.id} groupPublic={group} />
             ))}
             {groups.length === 0 ? (
               <div className="p-6 text-sm text-muted-foreground">

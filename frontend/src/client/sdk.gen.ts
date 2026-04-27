@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { GroupsListUserGroupsData, GroupsListUserGroupsResponse, GroupsCreateGroupData, GroupsCreateGroupResponse, GroupsReadGroupData, GroupsReadGroupResponse, GroupsUpdateGroupData, GroupsUpdateGroupResponse, GroupsDeleteGroupData, GroupsDeleteGroupResponse, GroupsAddGroupMemberData, GroupsAddGroupMemberResponse, GroupsRemoveGroupMemberData, GroupsRemoveGroupMemberResponse, GroupsListCurrentUserGroupExpensesData, GroupsListCurrentUserGroupExpensesResponse, GroupsListGroupExpensesData, GroupsListGroupExpensesResponse, GroupsCreateExpenseData, GroupsCreateExpenseResponse, GroupsCreateSettlementPaymentData, GroupsCreateSettlementPaymentResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserProfileResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { GroupsListUserGroupsData, GroupsListUserGroupsResponse, GroupsCreateGroupData, GroupsCreateGroupResponse, GroupsReadGroupData, GroupsReadGroupResponse, GroupsUpdateGroupData, GroupsUpdateGroupResponse, GroupsDeleteGroupData, GroupsDeleteGroupResponse, GroupsAddGroupMemberData, GroupsAddGroupMemberResponse, GroupsRemoveGroupMemberData, GroupsRemoveGroupMemberResponse, GroupsListCurrentUserGroupExpensesData, GroupsListCurrentUserGroupExpensesResponse, GroupsListGroupExpensesData, GroupsListGroupExpensesResponse, GroupsCreateExpenseData, GroupsCreateExpenseResponse, GroupsUpdateExpenseData, GroupsUpdateExpenseResponse, GroupsDeleteExpenseData, GroupsDeleteExpenseResponse, GroupsCreateSettlementPaymentData, GroupsCreateSettlementPaymentResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserProfileResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class GroupsService {
     /**
@@ -230,6 +230,55 @@ export class GroupsService {
             },
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Expense
+     * Modificar un gasto de un grupo.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.expenseId
+     * @param data.requestBody
+     * @returns ExpensePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateExpense(data: GroupsUpdateExpenseData): CancelablePromise<GroupsUpdateExpenseResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/groups/{group_id}/expenses/{expense_id}',
+            path: {
+                group_id: data.groupId,
+                expense_id: data.expenseId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Expense
+     * Eliminar un gasto de un grupo y revertir su impacto en saldos.
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.expenseId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteExpense(data: GroupsDeleteExpenseData): CancelablePromise<GroupsDeleteExpenseResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/groups/{group_id}/expenses/{expense_id}',
+            path: {
+                group_id: data.groupId,
+                expense_id: data.expenseId
+            },
             errors: {
                 422: 'Validation Error'
             }

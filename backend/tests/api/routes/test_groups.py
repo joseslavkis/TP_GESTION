@@ -846,3 +846,268 @@ def test_create_expense_rejects_invalid_members_and_custom_participants(
         headers=second_user_headers,
     )
     assert second_user_group_response.status_code == 200
+
+
+def test_update_expense_recalculates_balances(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, second_user_id = _add_member_directly(db, group_id)
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+
+    create_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Cena",
+            "amount": 100,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert create_response.status_code == 200
+    expense = create_response.json()
+
+    update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense['id']}",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Cena actualizada",
+            "amount": 120,
+            "payer_id": owner["id"],
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": owner["id"], "amount": 20},
+                {"user_id": str(second_user_id), "amount": 100},
+            ],
+        },
+    )
+    assert update_response.status_code == 200
+    updated_expense = update_response.json()
+    assert updated_expense["description"] == "Cena actualizada"
+    assert sorted(
+        participant["amount_owed"] for participant in updated_expense["participants"]
+    ) == [20.0, 100.0]
+
+    owner_groups = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=normal_user_token_headers,
+    )
+    assert owner_groups.status_code == 200
+    owner_group = next(
+        item for item in owner_groups.json()["data"] if item["id"] == group["id"]
+    )
+    assert owner_group["current_user_balance"] == 100.0
+
+    second_user_groups = client.get(
+        f"{settings.API_V1_STR}/groups/",
+        headers=second_user_headers,
+    )
+    assert second_user_groups.status_code == 200
+    second_group = next(
+        item for item in second_user_groups.json()["data"] if item["id"] == group["id"]
+    )
+    assert second_group["current_user_balance"] == -100.0
+
+
+def test_delete_expense_reverts_balances(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, _ = _add_member_directly(db, group_id)
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+
+    create_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Super",
+            "amount": 100,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert create_response.status_code == 200
+    expense_id = create_response.json()["id"]
+
+    # Verify balances are non-zero before deletion so we know the delete
+    # is actually doing work and not passing vacuously.
+    def get_balance(headers: dict) -> float:
+        resp = client.get(f"{settings.API_V1_STR}/groups/", headers=headers)
+        assert resp.status_code == 200
+        return next(item for item in resp.json()["data"] if item["id"] == group["id"])[
+            "current_user_balance"
+        ]
+
+    assert get_balance(normal_user_token_headers) == 50.0  # payer: paid 100, owes 50
+    assert get_balance(second_user_headers) == -50.0  # debtor: owes 50
+
+    delete_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=normal_user_token_headers,
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["message"] == "Expense deleted successfully"
+
+    assert get_balance(normal_user_token_headers) == 0.0
+    assert get_balance(second_user_headers) == 0.0
+
+
+def test_update_and_delete_expense_require_payer_or_admin(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    owner = _get_current_user(client, normal_user_token_headers)
+
+    second_user_email, _ = _add_member_directly(db, group_id)
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user_email, db=db
+    )
+
+    create_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Internet",
+            "amount": 100,
+            "payer_id": owner["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert create_response.status_code == 200
+    expense_id = create_response.json()["id"]
+
+    unauthorized_update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=second_user_headers,
+        json={"description": "Internet 2"},
+    )
+    assert unauthorized_update_response.status_code == 403
+
+    unauthorized_delete_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=second_user_headers,
+    )
+    assert unauthorized_delete_response.status_code == 403
+
+
+def test_delete_expense_with_removed_participant_is_rejected(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    """
+    Deleting an expense whose participants no longer include all original
+    members must be rejected with 409 to preserve the zero-sum balance
+    invariant. The former member's share cannot be credited back because
+    they have no GroupMember row to update.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    second_user = create_random_user(db)
+
+    add_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert add_member_response.status_code == 200
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
+    )
+
+    create_expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=second_user_headers,
+        json={
+            "description": "Gasto historico",
+            "amount": 100,
+            "payer_id": str(second_user.id),
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": str(second_user.id), "amount": 100},
+            ],
+        },
+    )
+    assert create_expense_response.status_code == 200
+    expense_id = create_expense_response.json()["id"]
+
+    remove_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{second_user.id}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_member_response.status_code == 200
+
+    # The expense participant (second_user) is no longer a group member.
+    # The backend must reject deletion rather than produce a broken balance state.
+    delete_expense_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=normal_user_token_headers,
+    )
+    assert delete_expense_response.status_code == 409
+    assert "left the group" in delete_expense_response.json()["detail"]
+
+
+def test_update_expense_with_removed_participant_is_rejected(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    group = _create_group(client, normal_user_token_headers)
+    second_user = create_random_user(db)
+
+    add_member_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members",
+        headers=normal_user_token_headers,
+        json={"email": second_user.email, "is_admin": False},
+    )
+    assert add_member_response.status_code == 200
+
+    second_user_headers = authentication_token_from_email(
+        client=client, email=second_user.email, db=db
+    )
+
+    create_expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=second_user_headers,
+        json={
+            "description": "Gasto historico",
+            "amount": 100,
+            "payer_id": str(second_user.id),
+            "division_mode": "custom",
+            "participants": [
+                {"user_id": str(second_user.id), "amount": 100},
+            ],
+        },
+    )
+    assert create_expense_response.status_code == 200
+    expense_id = create_expense_response.json()["id"]
+
+    remove_member_response = client.delete(
+        f"{settings.API_V1_STR}/groups/{group['id']}/members/{second_user.id}",
+        headers=normal_user_token_headers,
+    )
+    assert remove_member_response.status_code == 200
+
+    # El participante original ya no es miembro — el backend debe rechazar
+    # la actualización con 409 para preservar el invariante zero-sum.
+    update_expense_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense_id}",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Gasto historico editado",
+            "amount": 120,
+        },
+    )
+    assert update_expense_response.status_code == 409
+    assert "left the group" in update_expense_response.json()["detail"]

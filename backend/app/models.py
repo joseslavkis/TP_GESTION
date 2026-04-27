@@ -288,6 +288,14 @@ class ExpenseCreate(BaseModel):
     division_mode: Literal["equitable", "custom"]
 
 
+class ExpenseUpdate(BaseModel):
+    description: str | None = Field(default=None, min_length=1, max_length=255)
+    amount: float | None = Field(default=None, gt=0)
+    payer_id: uuid.UUID | None = None
+    participants: list[ExpenseParticipantIn] | None = None
+    division_mode: Literal["equitable", "custom"] | None = None
+
+
 class ExpenseParticipantPublic(BaseModel):
     user_id: uuid.UUID
     amount_owed: float

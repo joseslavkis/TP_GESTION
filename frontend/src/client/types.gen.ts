@@ -44,6 +44,14 @@ export type ExpensesPublic = {
     count: number;
 };
 
+export type ExpenseUpdate = {
+    description?: (string | null);
+    amount?: (number | null);
+    payer_id?: (string | null);
+    participants?: (Array<ExpenseParticipantIn> | null);
+    division_mode?: ('equitable' | 'custom' | null);
+};
+
 export type GroupCreate = {
     name: string;
     description?: (string | null);
@@ -302,6 +310,21 @@ export type GroupsCreateExpenseData = {
 };
 
 export type GroupsCreateExpenseResponse = (ExpensePublic);
+
+export type GroupsUpdateExpenseData = {
+    expenseId: string;
+    groupId: string;
+    requestBody: ExpenseUpdate;
+};
+
+export type GroupsUpdateExpenseResponse = (ExpensePublic);
+
+export type GroupsDeleteExpenseData = {
+    expenseId: string;
+    groupId: string;
+};
+
+export type GroupsDeleteExpenseResponse = (Message);
 
 export type GroupsCreateSettlementPaymentData = {
     groupId: string;

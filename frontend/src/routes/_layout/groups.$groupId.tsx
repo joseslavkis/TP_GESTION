@@ -1,17 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  createFileRoute,
-  Link as RouterLink,
-  useNavigate,
-} from "@tanstack/react-router"
-import {
-  ArrowLeft,
-  CircleDollarSign,
-  Search,
-  Trash2,
-  UserMinus,
-  Users,
-} from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
+import { ArrowLeft, CircleDollarSign, Search, Users } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import {
@@ -22,7 +11,12 @@ import {
 } from "@/client"
 import { AddExpenseDialog } from "@/components/Groups/AddExpenseDialog"
 import { AddMemberDialog } from "@/components/Groups/AddMemberDialog"
+import { DeleteExpenseDialog } from "@/components/Groups/DeleteExpenseDialog"
+import { DeleteGroupDialog } from "@/components/Groups/DeleteGroupDialog"
+import { DeleteMemberDialog } from "@/components/Groups/DeleteMemberDialog"
 import { EditGroupDialog } from "@/components/Groups/EditGroupDialog"
+import { GroupIcon } from "@/components/Groups/GroupIcon"
+import { ModifyExpenseDialog } from "@/components/Groups/ModifyExpenseDialog"
 import { RegisterSettlementPaymentDialog } from "@/components/Groups/RegisterSettlementPaymentDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,8 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/groups/$groupId")({
   component: GroupDetailPage,
@@ -107,10 +99,7 @@ function buildSettlement(members: GroupMemberPublic[]) {
 
 function GroupDetailPage() {
   const { groupId } = Route.useParams()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
-  const { showSuccessToast, showErrorToast } = useCustomToast()
   const [search, setSearch] = useState("")
   const [payerFilter, setPayerFilter] = useState("all")
 
@@ -122,32 +111,6 @@ function GroupDetailPage() {
     queryKey: ["group-expenses", groupId],
     queryFn: () =>
       GroupsService.listGroupExpenses({ groupId, skip: 0, limit: 100 }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: () => GroupsService.deleteGroup({ groupId }),
-    onSuccess: () => {
-      showSuccessToast("Grupo eliminado")
-      navigate({ to: "/groups" })
-    },
-    onError: handleError.bind(showErrorToast),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] })
-    },
-  })
-
-  const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) =>
-      GroupsService.removeGroupMember({ groupId, userId }),
-    onSuccess: () => {
-      showSuccessToast("Participante quitado")
-    },
-    onError: handleError.bind(showErrorToast),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
-    },
   })
 
   const group = groupQuery.data
@@ -173,22 +136,15 @@ function GroupDetailPage() {
     })
   }, [expenses, payerFilter, search])
 
+  const totalExpenses = useMemo(
+    () => expenses.reduce((total, expense) => total + expense.amount, 0),
+    [expenses],
+  )
+
   const membersById = useMemo(() => {
     return new Map(group?.members.map((member) => [member.user_id, member]))
   }, [group?.members])
   const settlementPayments = group?.settlement_payments ?? []
-
-  const onDeleteGroup = () => {
-    if (window.confirm("Eliminar este grupo y todos sus gastos?")) {
-      deleteMutation.mutate()
-    }
-  }
-
-  const onRemoveMember = (member: GroupMemberPublic) => {
-    if (window.confirm(`Quitar a ${memberLabel(member)} del grupo?`)) {
-      removeMemberMutation.mutate(member.user_id)
-    }
-  }
 
   if (groupQuery.isLoading) {
     return (
@@ -219,22 +175,34 @@ function GroupDetailPage() {
           </RouterLink>
         </Button>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight">
-                {group.name}
-              </h1>
-              <Badge
-                variant={
-                  group.current_user_balance < 0 ? "destructive" : "secondary"
-                }
-              >
-                {formatCurrency(group.current_user_balance)}
-              </Badge>
+          <div className="flex items-start gap-3">
+            <GroupIcon name={group.name} />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {group.name}
+                </h1>
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                {group.description || "Sin descripcion"}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="secondary"
+                  className="px-3 py-1 text-sm font-semibold"
+                >
+                  Total del grupo: {formatCurrency(totalExpenses)}
+                </Badge>
+                <Badge
+                  variant={
+                    group.current_user_balance < 0 ? "destructive" : "secondary"
+                  }
+                  className="px-3 py-1 text-sm font-semibold"
+                >
+                  Mi balance: {formatCurrency(group.current_user_balance)}
+                </Badge>
+              </div>
             </div>
-            <p className="mt-1 text-muted-foreground">
-              {group.description || "Sin descripcion"}
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <AddExpenseDialog
@@ -246,15 +214,7 @@ function GroupDetailPage() {
               <>
                 <AddMemberDialog groupId={group.id} />
                 <EditGroupDialog group={group} />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onDeleteGroup}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 />
-                  Eliminar
-                </Button>
+                <DeleteGroupDialog groupId={group.id} />
               </>
             ) : null}
           </div>
@@ -298,15 +258,7 @@ function GroupDetailPage() {
                     {formatCurrency(member.balance)}
                   </Badge>
                   {isAdmin && member.user_id !== currentUser?.id ? (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onRemoveMember(member)}
-                      disabled={removeMemberMutation.isPending}
-                    >
-                      <UserMinus />
-                      <span className="sr-only">Quitar participante</span>
-                    </Button>
+                    <DeleteMemberDialog groupId={group.id} member={member} />
                   ) : null}
                 </div>
               </div>
@@ -425,6 +377,8 @@ function GroupDetailPage() {
               key={expense.id}
               expense={expense}
               membersById={membersById}
+              groupId={groupId}
+              canManage={isAdmin || expense.payer_id === currentUser?.id}
             />
           ))}
           {!expensesQuery.isLoading && filteredExpenses.length === 0 ? (
@@ -471,9 +425,13 @@ function SettlementPaymentRow({
 function ExpenseRow({
   expense,
   membersById,
+  groupId,
+  canManage,
 }: {
   expense: ExpensePublic
   membersById: Map<string, GroupMemberPublic>
+  groupId: string
+  canManage: boolean
 }) {
   const payer = membersById.get(expense.payer_id)
 
@@ -488,9 +446,21 @@ function ExpenseRow({
           Pago {memberLabel(payer)} el {formatDate(expense.created_at)}
         </p>
       </div>
-      <div className="text-left md:text-right">
-        <p className="font-semibold">{formatCurrency(expense.amount)}</p>
-        <p className="text-sm text-muted-foreground">Total del comprobante</p>
+      <div className="flex items-center justify-between gap-2 text-left md:justify-end md:text-right">
+        {canManage ? (
+          <div className="flex items-center gap-1">
+            <ModifyExpenseDialog
+              groupId={groupId}
+              expense={expense}
+              members={Array.from(membersById.values())}
+            />
+            <DeleteExpenseDialog groupId={groupId} expense={expense} />
+          </div>
+        ) : null}
+        <div>
+          <p className="font-semibold">{formatCurrency(expense.amount)}</p>
+          <p className="text-sm text-muted-foreground">Total del comprobante</p>
+        </div>
       </div>
     </div>
   )
