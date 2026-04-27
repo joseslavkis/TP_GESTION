@@ -1111,3 +1111,4 @@ def test_update_expense_with_removed_participant_is_rejected(
     )
     assert update_expense_response.status_code == 409
     assert "left the group" in update_expense_response.json()["detail"]
+    
