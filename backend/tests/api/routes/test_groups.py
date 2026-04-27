@@ -2,7 +2,7 @@ import uuid
 from typing import Any, cast
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.core.config import settings
 from app.models import GroupMember

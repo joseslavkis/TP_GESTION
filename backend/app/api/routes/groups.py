@@ -1,8 +1,9 @@
 import logging
 import uuid
+from collections.abc import Sequence
 from datetime import datetime, time, timezone
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import Session, col, func, select
