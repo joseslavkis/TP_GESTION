@@ -2,8 +2,7 @@ import logging
 import uuid
 from datetime import datetime, time, timezone
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
-from typing import Sequence, Literal
+from typing import Any, Literal, Sequence
 
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import Session, col, func, select
@@ -39,6 +38,8 @@ from app.models import (
 router = APIRouter(prefix="/groups", tags=["groups"])
 logger = logging.getLogger(__name__)
 
+DivisionMode = Literal["equitable", "custom"]
+
 
 def _build_expense_public(
     expense: Expense, participants: list[ExpenseParticipant]
@@ -58,10 +59,8 @@ def _build_expense_public(
             for participant in participants
         ],
     )
-        DivisionMode = Literal["equitable", "custom"]
 
 
-            existing_participants: Sequence[ExpenseParticipant],
 def _build_group_member_public(member: GroupMember, user: User) -> GroupMemberPublic:
     return GroupMemberPublic(
         user_id=user.id,
@@ -165,9 +164,9 @@ def _can_manage_expense(
 
 
 def _infer_division_mode(
-    existing_participants: list[ExpenseParticipant],
+    existing_participants: Sequence[ExpenseParticipant],
     group_member_ids: set[uuid.UUID],
-) -> str:
+) -> DivisionMode:
     if len(existing_participants) != len(group_member_ids):
         return "custom"
 
@@ -788,12 +787,12 @@ def update_expense(
             )
 
         # 4. Calcular división y nuevos participantes
+        effective_division_mode: DivisionMode
         if expense_in.division_mode is not None:
             effective_division_mode = expense_in.division_mode
         elif expense_in.participants is not None:
             effective_division_mode = "custom"
         else:
-            effective_division_mode: DivisionMode
             effective_division_mode = _infer_division_mode(
                 existing_participants,
                 group_member_ids,
