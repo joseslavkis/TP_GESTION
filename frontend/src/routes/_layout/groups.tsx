@@ -101,7 +101,7 @@ function GroupsListPage() {
 
       <div className="grid gap-3">
         {filteredGroups.map((group) => (
-          <GroupCard groupPublic={group} />
+          <GroupCard key={group.id} groupPublic={group} />
         ))}
       </div>
     </div>
