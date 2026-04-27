@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, time, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
+from typing import Sequence, Literal
 
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import Session, col, func, select
@@ -57,8 +58,10 @@ def _build_expense_public(
             for participant in participants
         ],
     )
+        DivisionMode = Literal["equitable", "custom"]
 
 
+            existing_participants: Sequence[ExpenseParticipant],
 def _build_group_member_public(member: GroupMember, user: User) -> GroupMemberPublic:
     return GroupMemberPublic(
         user_id=user.id,
@@ -790,6 +793,7 @@ def update_expense(
         elif expense_in.participants is not None:
             effective_division_mode = "custom"
         else:
+            effective_division_mode: DivisionMode
             effective_division_mode = _infer_division_mode(
                 existing_participants,
                 group_member_ids,
