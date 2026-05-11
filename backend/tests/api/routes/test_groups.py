@@ -1178,7 +1178,7 @@ def test_create_expense_stores_category(
 
 
 def test_create_expense_defaults_to_otros_when_no_category(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 2: Verificar que cuando no se especifica categoría, se usa 'otros' por defecto.
@@ -1256,7 +1256,7 @@ def test_list_expenses_filters_by_category(
 
 
 def test_list_expenses_filters_by_all_categories(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 2: Verificar que sin filtro de categoría se devuelven todos los gastos.
@@ -1293,7 +1293,7 @@ def test_list_expenses_filters_by_all_categories(
 
 
 def test_list_expenses_filters_by_search_text(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 1: Verificar que el parámetro search filtra por texto en la descripción.
@@ -1343,7 +1343,7 @@ def test_list_expenses_filters_by_search_text(
 
 
 def test_list_expenses_search_is_case_insensitive(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 1: Verificar que la búsqueda por texto es case-insensitive.
@@ -1382,7 +1382,7 @@ def test_list_expenses_search_is_case_insensitive(
 
 
 def test_list_expenses_combines_search_and_category_filter(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 3: Verificar que search y category se aplican simultáneamente.
@@ -1433,7 +1433,7 @@ def test_list_expenses_combines_search_and_category_filter(
 
 
 def test_list_expenses_returns_empty_when_no_match(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 4: Verificar que cuando ningún gasto coincide con los filtros,
@@ -1464,7 +1464,7 @@ def test_list_expenses_returns_empty_when_no_match(
 
 
 def test_list_expenses_returns_empty_for_nonexistent_category(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 4: Verificar que un filtro de categoría sin gastos devuelve empty state.
@@ -1494,7 +1494,7 @@ def test_list_expenses_returns_empty_for_nonexistent_category(
 
 
 def test_update_expense_can_change_category(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     Verificar que se puede actualizar la categoría de un gasto existente.
@@ -1525,7 +1525,7 @@ def test_update_expense_can_change_category(
 
 
 def test_update_expense_preserves_category_when_not_specified(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     Verificar que al actualizar un gasto sin especificar category,
@@ -1557,7 +1557,7 @@ def test_update_expense_preserves_category_when_not_specified(
 
 
 def test_list_expenses_filter_by_search_no_results(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     CA 4: Verificar empty state cuando la búsqueda no encuentra resultados.
@@ -1587,7 +1587,7 @@ def test_list_expenses_filter_by_search_no_results(
 
 
 def test_list_expenses_count_reflects_filters(
-    client: TestClient, normal_user_token_headers: dict[str, str], _: Session
+    client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     """
     Verificar que el campo count en la respuesta refleja el número real de gastos
