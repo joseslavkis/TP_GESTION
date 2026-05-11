@@ -399,28 +399,6 @@ export function AddExpenseDialog({
                     step="0.01"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="expense-category-2">Categoria</Label>
-                  <Select
-                    value={category}
-                    onValueChange={(v) => setCategory(v as typeof category)}
-                  >
-                    <SelectTrigger id="expense-category-2" className="w-full">
-                      <SelectValue placeholder="Seleccionar categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="comida">Comida</SelectItem>
-                      <SelectItem value="transporte">Transporte</SelectItem>
-                      <SelectItem value="entretenimiento">
-                        Entretenimiento
-                      </SelectItem>
-                      <SelectItem value="compras">Compras</SelectItem>
-                      <SelectItem value="servicios">Servicios</SelectItem>
-                      <SelectItem value="salud">Salud</SelectItem>
-                      <SelectItem value="otros">Otros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="grid gap-2">
