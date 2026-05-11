@@ -399,12 +399,15 @@ export function AddExpenseDialog({
                     step="0.01"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label>Pago</Label>
-                  <Select value={payerId} onValueChange={setPayerId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar integrante" />
-                    </SelectTrigger>
+              <div className="grid gap-2">
+                <Label htmlFor="expense-category">Categoria</Label>
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as typeof category)}
+                >
+                  <SelectTrigger id="expense-category" className="w-full">
+                    <SelectValue placeholder="Seleccionar categoria" />
+                  </SelectTrigger>
                     <SelectContent>
                       {members.map((member) => (
                         <SelectItem key={member.user_id} value={member.user_id}>

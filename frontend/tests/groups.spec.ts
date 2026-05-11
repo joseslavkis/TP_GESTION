@@ -23,12 +23,12 @@ async function createExpense(
   amount: string,
   category: string,
 ) {
-  await page.getByRole("button", { name: "Registrar gasto" }).click()
+  await page.getByRole("button", { name: "Registrar movimiento" }).click()
   await page.getByPlaceholder("Supermercado").fill(description)
   await page.getByLabel("Categoria").click()
   await page.getByRole("option", { name: category }).click()
   await page.getByPlaceholder("0").fill(amount)
-  await page.getByRole("button", { name: "Registrar" }).click()
+  await page.getByRole("button", { name: "Guardar" }).click()
   await expect(page.getByText(description)).toBeVisible()
 }
 
@@ -257,12 +257,12 @@ test.describe("Crear gasto con categoría", () => {
     await createUser({ email, password, fullName: "Test User" })
     await createGroupWithMember(page, email, password, "Viaje grupal")
 
-    await page.getByRole("button", { name: "Registrar gasto" }).click()
+    await page.getByRole("button", { name: "Registrar movimiento" }).click()
     await page.getByPlaceholder("Supermercado").fill("Cena restaurant")
     await page.getByLabel("Categoria").click()
     await page.getByRole("option", { name: "Comida" }).click()
     await page.getByPlaceholder("0").fill("150")
-    await page.getByRole("button", { name: "Registrar" }).click()
+    await page.getByRole("button", { name: "Guardar" }).click()
 
     await expect(page.getByText("Cena restaurant")).toBeVisible()
   })
@@ -275,7 +275,7 @@ test.describe("Crear gasto con categoría", () => {
     await createUser({ email, password, fullName: "Test User" })
     await createGroupWithMember(page, email, password, "Viaje grupal")
 
-    await page.getByRole("button", { name: "Registrar gasto" }).click()
+    await page.getByRole("button", { name: "Registrar movimiento" }).click()
     await page.getByLabel("Categoria").click()
 
     const categories = [
@@ -304,7 +304,7 @@ test.describe("Editar gasto con categoría", () => {
 
     await createExpense(page, "Cine", "80", "Entretenimiento")
 
-    await page.getByByRole("button", { name: "Modificar gasto" }).click()
+    await page.getByRole("button", { name: "Modificar gasto" }).last().click()
     await page.getByLabel("Categoria").click()
     await page.getByRole("option", { name: "Comida" }).click()
     await page.getByRole("button", { name: "Guardar" }).click()

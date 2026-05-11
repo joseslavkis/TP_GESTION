@@ -263,12 +263,12 @@ export function ModifyExpenseDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Categoria</Label>
+            <Label htmlFor="modify-expense-category">Categoria</Label>
             <Select
               value={category}
               onValueChange={(v) => setCategory(v as typeof category)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="modify-expense-category" className="w-full">
                 <SelectValue placeholder="Seleccionar categoria" />
               </SelectTrigger>
               <SelectContent>

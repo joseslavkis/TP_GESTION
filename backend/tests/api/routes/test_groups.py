@@ -1317,7 +1317,7 @@ def test_list_expenses_search_is_case_insensitive(
     )
     _create_expense_with_category(
         client, normal_user_token_headers, group["id"], payer["id"],
-        "kine", 30.0, "entretenimiento",
+        "Cinepolis", 30.0, "entretenimiento",
     )
 
     for search_term in ["cine", "CINE", "CiNe"]:
