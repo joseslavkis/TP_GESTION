@@ -192,6 +192,8 @@ export class GroupsService {
      * @param data.groupId
      * @param data.skip
      * @param data.limit
+     * @param data.category
+     * @param data.search
      * @returns ExpensesPublic Successful Response
      * @throws ApiError
      */
@@ -204,7 +206,9 @@ export class GroupsService {
             },
             query: {
                 skip: data.skip,
-                limit: data.limit
+                limit: data.limit,
+                category: data.category,
+                search: data.search
             },
             errors: {
                 422: 'Validation Error'

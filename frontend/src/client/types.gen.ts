@@ -9,10 +9,13 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+export type ExpenseCategory = 'comida' | 'transporte' | 'entretenimiento' | 'compras' | 'servicios' | 'salud' | 'otros';
+
 export type ExpenseCreate = {
     description: string;
     amount: number;
     payer_id: string;
+    category?: ExpenseCategory;
     participants?: Array<ExpenseParticipantIn>;
     division_mode: 'equitable' | 'custom';
 };
@@ -32,6 +35,7 @@ export type ExpenseParticipantPublic = {
 export type ExpensePublic = {
     description: string;
     amount: number;
+    category?: ExpenseCategory;
     id: string;
     group_id: string;
     payer_id: string;
@@ -48,6 +52,7 @@ export type ExpenseUpdate = {
     description?: (string | null);
     amount?: (number | null);
     payer_id?: (string | null);
+    category?: (ExpenseCategory | null);
     participants?: (Array<ExpenseParticipantIn> | null);
     division_mode?: ('equitable' | 'custom' | null);
 };
@@ -297,8 +302,10 @@ export type GroupsListCurrentUserGroupExpensesData = {
 export type GroupsListCurrentUserGroupExpensesResponse = (UserExpensesPublic);
 
 export type GroupsListGroupExpensesData = {
+    category?: (ExpenseCategory | null);
     groupId: string;
     limit?: number;
+    search?: (string | null);
     skip?: number;
 };
 

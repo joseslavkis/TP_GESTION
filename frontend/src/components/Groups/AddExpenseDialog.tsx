@@ -65,6 +65,15 @@ export function AddExpenseDialog({
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
   const [transferToUserId, setTransferToUserId] = useState("")
   const [transferPaymentDate, setTransferPaymentDate] = useState("")
+  const [category, setCategory] = useState<
+    | "comida"
+    | "transporte"
+    | "entretenimiento"
+    | "compras"
+    | "servicios"
+    | "salud"
+    | "otros"
+  >("otros")
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -235,6 +244,7 @@ export function AddExpenseDialog({
       payer_id: payerId,
       division_mode: divisionMode,
       participants,
+      category,
     })
   }
 
@@ -352,6 +362,29 @@ export function AddExpenseDialog({
                 />
               </div>
 
+              <div className="grid gap-2">
+                <Label htmlFor="expense-category">Categoria</Label>
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as typeof category)}
+                >
+                  <SelectTrigger id="expense-category" className="w-full">
+                    <SelectValue placeholder="Seleccionar categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comida">Comida</SelectItem>
+                    <SelectItem value="transporte">Transporte</SelectItem>
+                    <SelectItem value="entretenimiento">
+                      Entretenimiento
+                    </SelectItem>
+                    <SelectItem value="compras">Compras</SelectItem>
+                    <SelectItem value="servicios">Servicios</SelectItem>
+                    <SelectItem value="salud">Salud</SelectItem>
+                    <SelectItem value="otros">Otros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="expense-amount">Monto</Label>
@@ -365,21 +398,6 @@ export function AddExpenseDialog({
                     min="0"
                     step="0.01"
                   />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Pago</Label>
-                  <Select value={payerId} onValueChange={setPayerId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar integrante" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {members.map((member) => (
-                        <SelectItem key={member.user_id} value={member.user_id}>
-                          {memberLabel(member)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 

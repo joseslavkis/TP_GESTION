@@ -1111,3 +1111,525 @@ def test_update_expense_with_removed_participant_is_rejected(
     )
     assert update_expense_response.status_code == 409
     assert "left the group" in update_expense_response.json()["detail"]
+
+
+# =============================================================================
+# Tests para búsqueda por texto y filtrado por categoría
+# =============================================================================
+
+
+def _create_expense_with_category(
+    client: TestClient,
+    headers: dict[str, str],
+    group_id: str,
+    payer_id: str,
+    description: str,
+    amount: float,
+    category: str,
+) -> dict[str, Any]:
+    """Helper que crea un gasto con categoría específica."""
+    response = client.post(
+        f"{settings.API_V1_STR}/groups/{group_id}/expenses",
+        headers=headers,
+        json={
+            "description": description,
+            "amount": amount,
+            "payer_id": payer_id,
+            "division_mode": "equitable",
+            "participants": [],
+            "category": category,
+        },
+    )
+    assert response.status_code == 200, f"Failed to create expense: {response.json()}"
+    return response.json()
+
+
+def test_create_expense_stores_category(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    """
+    CA 2: Crear un gasto con categoría específica y verificar que se persiste
+    correctamente y se devuelve en la respuesta.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    payer = _get_current_user(client, normal_user_token_headers)
+    _add_member_directly(db, group_id)
+
+    for category_value in [
+        "comida",
+        "transporte",
+        "entretenimiento",
+        "compras",
+        "servicios",
+        "salud",
+        "otros",
+    ]:
+        expense = _create_expense_with_category(
+            client=client,
+            headers=normal_user_token_headers,
+            group_id=group["id"],
+            payer_id=payer["id"],
+            description=f"Gasto de prueba {category_value}",
+            amount=50.0,
+            category=category_value,
+        )
+        assert expense["category"] == category_value
+
+
+def test_create_expense_defaults_to_otros_when_no_category(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 2: Verificar que cuando no se especifica categoría, se usa 'otros' por defecto.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    expense_response = client.post(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        json={
+            "description": "Sin categoría explícita",
+            "amount": 30.0,
+            "payer_id": payer["id"],
+            "division_mode": "equitable",
+            "participants": [],
+        },
+    )
+    assert expense_response.status_code == 200
+    expense = expense_response.json()
+    assert expense["category"] == "otros"
+
+
+def test_list_expenses_filters_by_category(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    """
+    CA 2: Verificar que el parámetro category filtra los gastos correctamente.
+    Se crean 3 gastos de categorías distintas y se verifica que al filtrar
+    por una categoría específica solo se devuelve esa.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    group_id = uuid.UUID(group["id"])
+    payer = _get_current_user(client, normal_user_token_headers)
+    second_email, _ = _add_member_directly(db, group_id)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Cena en restaurant",
+        100.0,
+        "comida",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Nafta",
+        50.0,
+        "transporte",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Película",
+        40.0,
+        "entretenimiento",
+    )
+
+    list_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"category": "comida"},
+    )
+    assert list_response.status_code == 200
+    data = list_response.json()
+    assert data["count"] == 1
+    assert data["data"][0]["category"] == "comida"
+    assert data["data"][0]["description"] == "Cena en restaurant"
+
+
+def test_list_expenses_filters_by_all_categories(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 2: Verificar que sin filtro de categoría se devuelven todos los gastos.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Desayuno",
+        20.0,
+        "comida",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Remera",
+        80.0,
+        "compras",
+    )
+
+    list_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+    )
+    assert list_response.status_code == 200
+    data = list_response.json()
+    assert data["count"] == 2
+
+
+def test_list_expenses_filters_by_search_text(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 1: Verificar que el parámetro search filtra por texto en la descripción.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Supermercado",
+        100.0,
+        "comida",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Nafta Shell",
+        60.0,
+        "transporte",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Supermercado chino",
+        45.0,
+        "compras",
+    )
+
+    search_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"search": "super"},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    assert data["count"] == 2
+    descriptions = {e["description"] for e in data["data"]}
+    assert "Supermercado" in descriptions
+    assert "Supermercado chino" in descriptions
+
+
+def test_list_expenses_search_is_case_insensitive(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 1: Verificar que la búsqueda por texto es case-insensitive.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "CINE",
+        50.0,
+        "entretenimiento",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Cinepolis",
+        30.0,
+        "entretenimiento",
+    )
+
+    for search_term in ["cine", "CINE", "CiNe"]:
+        search_response = client.get(
+            f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+            headers=normal_user_token_headers,
+            params={"search": search_term},
+        )
+        assert search_response.status_code == 200
+        data = search_response.json()
+        assert data["count"] == 2, f"search term '{search_term}' should match both"
+
+
+def test_list_expenses_combines_search_and_category_filter(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 3: Verificar que search y category se aplican simultáneamente.
+    Se crean gastos de distintos tipos y se verifica que la combinación
+    de filtros devuelve solo el gasto que cumple ambos criterios.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Pizerria Don Julio",
+        120.0,
+        "comida",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Pizzería",
+        80.0,
+        "entretenimiento",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Panchos",
+        25.0,
+        "comida",
+    )
+
+    combined_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"search": "piz", "category": "comida"},
+    )
+    assert combined_response.status_code == 200
+    data = combined_response.json()
+    assert data["count"] == 1
+    assert data["data"][0]["description"] == "Pizerria Don Julio"
+    assert data["data"][0]["category"] == "comida"
+
+
+def test_list_expenses_returns_empty_when_no_match(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 4: Verificar que cuando ningún gasto coincide con los filtros,
+    se devuelve count=0 y una lista vacía.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Cerveza",
+        30.0,
+        "comida",
+    )
+
+    empty_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"category": "transporte"},
+    )
+    assert empty_response.status_code == 200
+    data = empty_response.json()
+    assert data["count"] == 0
+    assert data["data"] == []
+
+
+def test_list_expenses_returns_empty_for_nonexistent_category(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 4: Verificar que un filtro de categoría sin gastos devuelve empty state.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Helado",
+        15.0,
+        "comida",
+    )
+
+    empty_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"category": "salud"},
+    )
+    assert empty_response.status_code == 200
+    data = empty_response.json()
+    assert data["count"] == 0
+    assert data["data"] == []
+
+
+def test_update_expense_can_change_category(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    Verificar que se puede actualizar la categoría de un gasto existente.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    expense = _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Cena",
+        100.0,
+        "comida",
+    )
+    assert expense["category"] == "comida"
+
+    update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense['id']}",
+        headers=normal_user_token_headers,
+        json={"category": "entretenimiento"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["category"] == "entretenimiento"
+    assert updated["description"] == "Cena"
+
+
+def test_update_expense_preserves_category_when_not_specified(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    Verificar que al actualizar un gasto sin especificar category,
+    se mantiene la categoría original (no se resetea a default).
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    expense = _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Cine",
+        50.0,
+        "entretenimiento",
+    )
+    assert expense["category"] == "entretenimiento"
+
+    update_response = client.patch(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses/{expense['id']}",
+        headers=normal_user_token_headers,
+        json={"description": "Cine updated"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["category"] == "entretenimiento"
+    assert updated["description"] == "Cine updated"
+
+
+def test_list_expenses_filter_by_search_no_results(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    CA 4: Verificar empty state cuando la búsqueda no encuentra resultados.
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Cerveza",
+        30.0,
+        "comida",
+    )
+
+    empty_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"search": "vino"},
+    )
+    assert empty_response.status_code == 200
+    data = empty_response.json()
+    assert data["count"] == 0
+    assert data["data"] == []
+
+
+def test_list_expenses_count_reflects_filters(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """
+    Verificar que el campo count en la respuesta refleja el número real de gastos
+    que matchean los filtros (no el total sin filtrar).
+    """
+    group = _create_group(client, normal_user_token_headers)
+    payer = _get_current_user(client, normal_user_token_headers)
+
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Pizza",
+        80.0,
+        "comida",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Empanadas",
+        40.0,
+        "comida",
+    )
+    _create_expense_with_category(
+        client,
+        normal_user_token_headers,
+        group["id"],
+        payer["id"],
+        "Billetera",
+        10.0,
+        "compras",
+    )
+
+    filtered_response = client.get(
+        f"{settings.API_V1_STR}/groups/{group['id']}/expenses",
+        headers=normal_user_token_headers,
+        params={"category": "comida"},
+    )
+    assert filtered_response.status_code == 200
+    data = filtered_response.json()
+    assert data["count"] == 2
+    assert len(data["data"]) == 2
