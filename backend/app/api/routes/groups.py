@@ -575,9 +575,7 @@ def list_group_expenses(
             func.lower(Expense.description).contains(search.lower())
         )
 
-    count_statement = (
-        select(func.count()).select_from(base_query.subquery())
-    )
+    count_statement = select(func.count()).select_from(base_query.subquery())
     count = session.exec(count_statement).one()
 
     expenses = session.exec(
