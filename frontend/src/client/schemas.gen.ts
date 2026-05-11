@@ -57,6 +57,12 @@ export const Body_login_login_access_tokenSchema = {
     title: 'Body_login-login_access_token'
 } as const;
 
+export const ExpenseCategorySchema = {
+    type: 'string',
+    enum: ['comida', 'transporte', 'entretenimiento', 'compras', 'servicios', 'salud', 'otros'],
+    title: 'ExpenseCategory'
+} as const;
+
 export const ExpenseCreateSchema = {
     properties: {
         description: {
@@ -74,6 +80,10 @@ export const ExpenseCreateSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Payer Id'
+        },
+        category: {
+            '$ref': '#/components/schemas/ExpenseCategory',
+            default: 'otros'
         },
         participants: {
             items: {
@@ -148,6 +158,10 @@ export const ExpensePublicSchema = {
             exclusiveMinimum: 0,
             title: 'Amount'
         },
+        category: {
+            '$ref': '#/components/schemas/ExpenseCategory',
+            default: 'otros'
+        },
         id: {
             type: 'string',
             format: 'uuid',
@@ -219,6 +233,16 @@ export const ExpenseUpdateSchema = {
                 }
             ],
             title: 'Payer Id'
+        },
+        category: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ExpenseCategory'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         },
         participants: {
             anyOf: [
@@ -1031,26 +1055,6 @@ export const UserRegisterSchema = {
     type: 'object',
     required: ['email', 'password'],
     title: 'UserRegister'
-} as const;
-
-export const UserRegisterResponseSchema = {
-    properties: {
-        user: {
-            '$ref': '#/components/schemas/UserPublic'
-        },
-        access_token: {
-            type: 'string',
-            title: 'Access Token'
-        },
-        token_type: {
-            type: 'string',
-            title: 'Token Type',
-            default: 'bearer'
-        }
-    },
-    type: 'object',
-    required: ['user', 'access_token'],
-    title: 'UserRegisterResponse'
 } as const;
 
 export const UserUpdateSchema = {

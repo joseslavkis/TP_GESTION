@@ -9,11 +9,13 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+export type ExpenseCategory = 'comida' | 'transporte' | 'entretenimiento' | 'compras' | 'servicios' | 'salud' | 'otros';
+
 export type ExpenseCreate = {
     description: string;
     amount: number;
     payer_id: string;
-    category?: 'comida' | 'transporte' | 'entretenimiento' | 'compras' | 'servicios' | 'salud' | 'otros';
+    category?: ExpenseCategory;
     participants?: Array<ExpenseParticipantIn>;
     division_mode: 'equitable' | 'custom';
 };
@@ -33,10 +35,10 @@ export type ExpenseParticipantPublic = {
 export type ExpensePublic = {
     description: string;
     amount: number;
+    category?: ExpenseCategory;
     id: string;
     group_id: string;
     payer_id: string;
-    category: 'comida' | 'transporte' | 'entretenimiento' | 'compras' | 'servicios' | 'salud' | 'otros';
     created_at: string;
     participants: Array<ExpenseParticipantPublic>;
 };
@@ -50,6 +52,7 @@ export type ExpenseUpdate = {
     description?: (string | null);
     amount?: (number | null);
     payer_id?: (string | null);
+    category?: (ExpenseCategory | null);
     participants?: (Array<ExpenseParticipantIn> | null);
     division_mode?: ('equitable' | 'custom' | null);
 };
@@ -217,12 +220,6 @@ export type UserRegister = {
     full_name?: (string | null);
 };
 
-export type UserRegisterResponse = {
-    user: UserPublic;
-    access_token: string;
-    token_type?: string;
-};
-
 export type UsersPublic = {
     data: Array<UserPublic>;
     count: number;
@@ -305,8 +302,10 @@ export type GroupsListCurrentUserGroupExpensesData = {
 export type GroupsListCurrentUserGroupExpensesResponse = (UserExpensesPublic);
 
 export type GroupsListGroupExpensesData = {
+    category?: (ExpenseCategory | null);
     groupId: string;
     limit?: number;
+    search?: (string | null);
     skip?: number;
 };
 
@@ -440,7 +439,7 @@ export type UsersRegisterUserData = {
     requestBody: UserRegister;
 };
 
-export type UsersRegisterUserResponse = (UserRegisterResponse);
+export type UsersRegisterUserResponse = (UserPublic);
 
 export type UsersReadUserByIdData = {
     userId: string;

@@ -192,6 +192,8 @@ export class GroupsService {
      * @param data.groupId
      * @param data.skip
      * @param data.limit
+     * @param data.category
+     * @param data.search
      * @returns ExpensesPublic Successful Response
      * @throws ApiError
      */
@@ -204,7 +206,9 @@ export class GroupsService {
             },
             query: {
                 skip: data.skip,
-                limit: data.limit
+                limit: data.limit,
+                category: data.category,
+                search: data.search
             },
             errors: {
                 422: 'Validation Error'
@@ -665,10 +669,10 @@ export class UsersService {
     
     /**
      * Register User
-     * Create new user without the need to be logged in and return access token.
+     * Create new user without the need to be logged in.
      * @param data The data for the request.
      * @param data.requestBody
-     * @returns UserRegisterResponse Successful Response
+     * @returns UserPublic Successful Response
      * @throws ApiError
      */
     public static registerUser(data: UsersRegisterUserData): CancelablePromise<UsersRegisterUserResponse> {
