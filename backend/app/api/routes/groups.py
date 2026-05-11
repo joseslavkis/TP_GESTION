@@ -11,6 +11,7 @@ from sqlmodel import Session, col, func, select
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Expense,
+    ExpenseCategory,
     ExpenseCreate,
     ExpenseParticipant,
     ExpenseParticipantIn,
@@ -49,6 +50,7 @@ def _build_expense_public(
         id=expense.id,
         description=expense.description,
         amount=expense.amount,
+        category=expense.category,
         group_id=expense.group_id,
         payer_id=expense.payer_id,
         created_at=expense.created_at,
@@ -545,6 +547,8 @@ def list_group_expenses(
     group_id: uuid.UUID,
     skip: int = 0,
     limit: int = 100,
+    category: ExpenseCategory | None = None,
+    search: str | None = None,
 ) -> Any:
     """
     Listar los gastos de un grupo para sus miembros.
@@ -561,16 +565,23 @@ def list_group_expenses(
             detail="User is not a member of this group",
         )
 
+    base_query = select(Expense).where(Expense.group_id == group_id)
+
+    if category is not None:
+        base_query = base_query.where(Expense.category == category)
+
+    if search:
+        base_query = base_query.where(
+            func.lower(Expense.description).contains(search.lower())
+        )
+
     count_statement = (
-        select(func.count()).select_from(Expense).where(Expense.group_id == group_id)
+        select(func.count()).select_from(base_query.subquery())
     )
     count = session.exec(count_statement).one()
+
     expenses = session.exec(
-        select(Expense)
-        .where(Expense.group_id == group_id)
-        .order_by(col(Expense.created_at).desc())
-        .offset(skip)
-        .limit(limit)
+        base_query.order_by(col(Expense.created_at).desc()).offset(skip).limit(limit)
     ).all()
 
     participants = (
@@ -643,6 +654,7 @@ def create_expense(
         db_expense = Expense(
             description=expense_in.description,
             amount=expense_in.amount,
+            category=expense_in.category,
             payer_id=expense_in.payer_id,
             group_id=group_id,
         )
@@ -846,6 +858,8 @@ def update_expense(
         expense.description = effective_description
         expense.amount = effective_amount
         expense.payer_id = effective_payer_id
+        if expense_in.category is not None:
+            expense.category = expense_in.category
         session.add(expense)
 
         for participant in existing_participants:

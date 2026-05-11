@@ -1033,6 +1033,26 @@ export const UserRegisterSchema = {
     title: 'UserRegister'
 } as const;
 
+export const UserRegisterResponseSchema = {
+    properties: {
+        user: {
+            '$ref': '#/components/schemas/UserPublic'
+        },
+        access_token: {
+            type: 'string',
+            title: 'Access Token'
+        },
+        token_type: {
+            type: 'string',
+            title: 'Token Type',
+            default: 'bearer'
+        }
+    },
+    type: 'object',
+    required: ['user', 'access_token'],
+    title: 'UserRegisterResponse'
+} as const;
+
 export const UserUpdateSchema = {
     properties: {
         email: {

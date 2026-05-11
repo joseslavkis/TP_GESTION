@@ -102,6 +102,16 @@ function GroupDetailPage() {
   const { user: currentUser } = useAuth()
   const [search, setSearch] = useState("")
   const [payerFilter, setPayerFilter] = useState("all")
+  const [categoryFilter, setCategoryFilter] = useState<
+    | "comida"
+    | "transporte"
+    | "entretenimiento"
+    | "compras"
+    | "servicios"
+    | "salud"
+    | "otros"
+    | "all"
+  >("all")
 
   const groupQuery = useQuery({
     queryKey: ["group", groupId],
@@ -132,9 +142,11 @@ function GroupDetailPage() {
         expense.description.toLowerCase().includes(normalizedSearch)
       const matchesPayer =
         payerFilter === "all" || expense.payer_id === payerFilter
-      return matchesSearch && matchesPayer
+      const matchesCategory =
+        categoryFilter === "all" || expense.category === categoryFilter
+      return matchesSearch && matchesPayer && matchesCategory
     })
-  }, [expenses, payerFilter, search])
+  }, [expenses, categoryFilter, payerFilter, search])
 
   const totalExpenses = useMemo(
     () => expenses.reduce((total, expense) => total + expense.amount, 0),
@@ -346,7 +358,7 @@ function GroupDetailPage() {
               {filteredExpenses.length} movimientos visibles
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,18rem)_13rem]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,18rem)_13rem_13rem]">
             <div className="flex items-center gap-2 rounded-md border px-3">
               <Search className="size-4 text-muted-foreground" />
               <Input
@@ -356,6 +368,36 @@ function GroupDetailPage() {
                 className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
               />
             </div>
+            <Select
+              value={categoryFilter}
+              onValueChange={(v) =>
+                setCategoryFilter(
+                  v as
+                    | "comida"
+                    | "transporte"
+                    | "entretenimiento"
+                    | "compras"
+                    | "servicios"
+                    | "salud"
+                    | "otros"
+                    | "all",
+                )
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="comida">Comida</SelectItem>
+                <SelectItem value="transporte">Transporte</SelectItem>
+                <SelectItem value="entretenimiento">Entretenimiento</SelectItem>
+                <SelectItem value="compras">Compras</SelectItem>
+                <SelectItem value="servicios">Servicios</SelectItem>
+                <SelectItem value="salud">Salud</SelectItem>
+                <SelectItem value="otros">Otros</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={payerFilter} onValueChange={setPayerFilter}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pagador" />
@@ -382,8 +424,22 @@ function GroupDetailPage() {
             />
           ))}
           {!expensesQuery.isLoading && filteredExpenses.length === 0 ? (
-            <div className="p-8 text-sm text-muted-foreground">
-              No hay gastos para mostrar.
+            <div className="flex flex-col items-center gap-4 p-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No hay gastos para los filtros seleccionados.
+              </p>
+              {search || categoryFilter !== "all" || payerFilter !== "all" ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearch("")
+                    setCategoryFilter("all")
+                    setPayerFilter("all")
+                  }}
+                >
+                  Limpiar filtros
+                </Button>
+              ) : null}
             </div>
           ) : null}
           {expensesQuery.isLoading ? (

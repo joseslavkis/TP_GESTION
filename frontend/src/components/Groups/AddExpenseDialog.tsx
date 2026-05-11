@@ -65,6 +65,15 @@ export function AddExpenseDialog({
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
   const [transferToUserId, setTransferToUserId] = useState("")
   const [transferPaymentDate, setTransferPaymentDate] = useState("")
+  const [category, setCategory] = useState<
+    | "comida"
+    | "transporte"
+    | "entretenimiento"
+    | "compras"
+    | "servicios"
+    | "salud"
+    | "otros"
+  >("otros")
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -235,6 +244,7 @@ export function AddExpenseDialog({
       payer_id: payerId,
       division_mode: divisionMode,
       participants,
+      category,
     })
   }
 
@@ -350,6 +360,29 @@ export function AddExpenseDialog({
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder="Supermercado"
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Categoria</Label>
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as typeof category)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comida">Comida</SelectItem>
+                    <SelectItem value="transporte">Transporte</SelectItem>
+                    <SelectItem value="entretenimiento">
+                      Entretenimiento
+                    </SelectItem>
+                    <SelectItem value="compras">Compras</SelectItem>
+                    <SelectItem value="servicios">Servicios</SelectItem>
+                    <SelectItem value="salud">Salud</SelectItem>
+                    <SelectItem value="otros">Otros</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">

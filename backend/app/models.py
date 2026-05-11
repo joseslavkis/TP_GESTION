@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, field_validator
@@ -10,6 +11,16 @@ from sqlmodel import Field, Relationship, SQLModel
 
 def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class ExpenseCategory(str, Enum):
+    COMIDA = "comida"
+    TRANSPORTE = "transporte"
+    ENTRETENIMIENTO = "entretenimiento"
+    COMPRAS = "compras"
+    SERVICIOS = "servicios"
+    SALUD = "salud"
+    OTROS = "otros"
 
 
 # Shared properties
@@ -224,6 +235,7 @@ class ExpenseParticipant(SQLModel, table=True):
 class ExpenseBase(SQLModel):
     description: str = Field(min_length=1, max_length=255)
     amount: float = Field(gt=0)
+    category: ExpenseCategory = ExpenseCategory.OTROS
 
 
 class Expense(ExpenseBase, table=True):
@@ -284,6 +296,7 @@ class ExpenseCreate(BaseModel):
     description: str = Field(min_length=1, max_length=255)
     amount: float = Field(gt=0)
     payer_id: uuid.UUID
+    category: ExpenseCategory = ExpenseCategory.OTROS
     participants: list[ExpenseParticipantIn] = Field(default_factory=list)
     division_mode: Literal["equitable", "custom"]
 
@@ -292,6 +305,7 @@ class ExpenseUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=255)
     amount: float | None = Field(default=None, gt=0)
     payer_id: uuid.UUID | None = None
+    category: ExpenseCategory | None = None
     participants: list[ExpenseParticipantIn] | None = None
     division_mode: Literal["equitable", "custom"] | None = None
 

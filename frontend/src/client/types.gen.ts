@@ -13,6 +13,7 @@ export type ExpenseCreate = {
     description: string;
     amount: number;
     payer_id: string;
+    category?: 'comida' | 'transporte' | 'entretenimiento' | 'compras' | 'servicios' | 'salud' | 'otros';
     participants?: Array<ExpenseParticipantIn>;
     division_mode: 'equitable' | 'custom';
 };
@@ -35,6 +36,7 @@ export type ExpensePublic = {
     id: string;
     group_id: string;
     payer_id: string;
+    category: 'comida' | 'transporte' | 'entretenimiento' | 'compras' | 'servicios' | 'salud' | 'otros';
     created_at: string;
     participants: Array<ExpenseParticipantPublic>;
 };
@@ -213,6 +215,12 @@ export type UserRegister = {
     email: string;
     password: string;
     full_name?: (string | null);
+};
+
+export type UserRegisterResponse = {
+    user: UserPublic;
+    access_token: string;
+    token_type?: string;
 };
 
 export type UsersPublic = {
@@ -432,7 +440,7 @@ export type UsersRegisterUserData = {
     requestBody: UserRegister;
 };
 
-export type UsersRegisterUserResponse = (UserPublic);
+export type UsersRegisterUserResponse = (UserRegisterResponse);
 
 export type UsersReadUserByIdData = {
     userId: string;

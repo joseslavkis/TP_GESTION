@@ -107,6 +107,24 @@ export function ModifyExpenseDialog({
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>(
     buildCustomAmounts(expense),
   )
+  const [category, setCategory] = useState<
+    | "comida"
+    | "transporte"
+    | "entretenimiento"
+    | "compras"
+    | "servicios"
+    | "salud"
+    | "otros"
+  >(
+    (expense.category as
+      | "comida"
+      | "transporte"
+      | "entretenimiento"
+      | "compras"
+      | "servicios"
+      | "salud"
+      | "otros") || "otros",
+  )
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
 
@@ -127,6 +145,16 @@ export function ModifyExpenseDialog({
       setPayerId(expense.payer_id)
       setDivisionMode(inferDivisionMode(expense, members))
       setCustomAmounts(buildCustomAmounts(expense))
+      setCategory(
+        (expense.category as
+          | "comida"
+          | "transporte"
+          | "entretenimiento"
+          | "compras"
+          | "servicios"
+          | "salud"
+          | "otros") || "otros",
+      )
     }
   }, [expense, isOpen, members])
 
@@ -203,6 +231,7 @@ export function ModifyExpenseDialog({
       payer_id: payerId,
       division_mode: divisionMode,
       participants: participantsForPayload,
+      category,
     })
   }
 
@@ -231,6 +260,27 @@ export function ModifyExpenseDialog({
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Supermercado"
             />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Categoria</Label>
+            <Select
+              value={category}
+              onValueChange={(v) => setCategory(v as typeof category)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="comida">Comida</SelectItem>
+                <SelectItem value="transporte">Transporte</SelectItem>
+                <SelectItem value="entretenimiento">Entretenimiento</SelectItem>
+                <SelectItem value="compras">Compras</SelectItem>
+                <SelectItem value="servicios">Servicios</SelectItem>
+                <SelectItem value="salud">Salud</SelectItem>
+                <SelectItem value="otros">Otros</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
