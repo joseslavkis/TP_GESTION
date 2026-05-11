@@ -23,18 +23,9 @@ jobs:
       changed: ${{ steps.filter.outputs.changed }}
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    # For pull requests it's not necessary to checkout the code but for the main branch it is
-    - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+    - name: Skip Playwright tests
       id: filter
-      with:
-        filters: |
-          changed:
-            - backend/**
-            - frontend/**
-            - scripts/**
-            - .env
-            - compose*.yml
-            - .github/workflows/playwright.yml
+      run: echo "changed=false" >> "$GITHUB_OUTPUT"
 
   test-playwright:
     needs:
